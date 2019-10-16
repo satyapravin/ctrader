@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Bitmex.Client.Websocket</PackageId>
+    <Version>2.0.0</Version>
+    <Authors>Mariusz Kotas</Authors>
+    <Description>Client for Bitmex websocket API</Description>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Initial release</PackageReleaseNotes>
+    <Copyright>Copyright 2018 Mariusz Kotas. All rights reserved.</Copyright>
+    <PackageTags>Bitmex websockets websocket client cryptocurrency exchange bitcoin</PackageTags>
+    <PackageLicenseUrl>https://github.com/Marfusios/bitmex-client-websocket/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/Marfusios/bitmex-client-websocket</PackageProjectUrl>
+    <PackageIconUrl>https://media.glassdoor.com/sqll/1955459/bitmex-squarelogo-1526028471476.png</PackageIconUrl>
+    <RepositoryUrl>https://github.com/Marfusios/bitmex-client-websocket</RepositoryUrl>
+    <RepositoryType>Git</RepositoryType>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile> 
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibLog" Version="5.0.6">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="System.Reactive" Version="4.0.0" />
+    <PackageReference Include="Websocket.Client" Version="3.2.56" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Responses\Instruments\" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bitmex.Client.Websocket\Bitmex.Client.Websocket.csproj" />
+    <ProjectReference Include="..\ServiceLocator\EmbeddedService.csproj" />
+  </ItemGroup>
+
+</Project>
