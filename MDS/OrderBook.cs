@@ -70,13 +70,24 @@ namespace MDS
             if (lvl == left)
             {
                 var keys = levelByPrice.Keys.ToList();
-                Interlocked.Exchange(ref left, levelByPrice[keys.First()]);
+
+                if (keys.Count > 0)
+                    Interlocked.Exchange(ref left, levelByPrice[keys.First()]);
+                else
+                {
+                    Interlocked.Exchange(ref left, null);
+                }
             }
 
             if (lvl == right)
             {
                 var keys = levelByPrice.Keys.ToList();
-                Interlocked.Exchange(ref right, levelByPrice[keys.Last()]);
+                if (keys.Count > 0)
+                    Interlocked.Exchange(ref right, levelByPrice[keys.Last()]);
+                else
+                {
+                    Interlocked.Exchange(ref right, null);
+                }
             }
         }
     }

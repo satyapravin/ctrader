@@ -23,7 +23,7 @@ namespace CTrader
             var executingDir = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             var logPath = Path.Combine(executingDir, "logs", "verbose.log");
             Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Verbose()
+                .MinimumLevel.Error()
                 .WriteTo.File(logPath, rollingInterval: RollingInterval.Day)
                 .CreateLogger();
         }
@@ -107,8 +107,10 @@ namespace CTrader
             while (true)
             {
                 counter++;
-                var margin = BitmexConverter.ConvertFromSatoshiToBtc(mgsSvc.AvailableMargin * 0.7);
-                margin *= 50;
+                var amount = mgsSvc.Amount * 0.75;
+                amount *= 10;
+                var margin = mgsSvc.AvailableMargin * 0.7;
+                margin *= 10;
 
                 var btcAsk = mdsSvc.GetBestAsk("XBTUSD");
                 var ethAsk = mdsSvc.GetBestAsk("ETHUSD");
@@ -124,7 +126,10 @@ namespace CTrader
                     var ethposval = pSvc.GetQuantity("ETHUSD") * ethBid * 0.000001;
                     var xcfposval = pSvc.GetQuantity("ETHZ19") * xcfAsk;
 
-                    var grossposval = Math.Abs(btcposval) + Math.Abs(ethposval) + Math.Abs(xcfposval) + margin;
+                    var grossposval = Math.Abs(btcposval) + Math.Abs(ethposval) + Math.Abs(xcfposval);
+
+                    if (grossposval == 0)
+                        grossposval = amount;
 
                     var currentQty = (long)Math.Round(xcfposval / xcfAsk, 0);
                     var targetposval = grossposval / 3.0;

@@ -1,4 +1,6 @@
-﻿using System;
+﻿
+
+using System;
 using System.Threading;
 using OMS;
 using MDS;
@@ -100,9 +102,23 @@ namespace Executor
                             if (chase) req.Amend(delta, askPrice);
                         }
                     }
+                    else
+                    {
+                        if (req != null)
+                        {
+                            if (chase)
+                            {
+                                if (req.isBuy && bidPrice != req.price)
+                                    req.Amend(0, bidPrice);
+                                else if (!req.isBuy && askPrice != req.price)
+                                    req.Amend(0, askPrice);
+                            }
+                        }
+
+                    }
                 }
 
-                Thread.Sleep(500);
+                Thread.Sleep(2500);
             }
         }
 

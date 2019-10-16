@@ -8,16 +8,17 @@ namespace MGS
 {
     public class MarginService : IEmbeddedService
     {
-        private long availableMargin = 0;
+        private double availableMargin = 0;
         private double unrealizedPnl = 0;
-
+        private double amount = 0;
         public void Start()
         {
             BitMex.BitMexService svc = (BitMex.BitMexService)Locator.Instance.GetService("BitMexService");
             svc.SubscribeMargin(new BitMex.OnMargin(OnMarginUpdate));
         }
 
-        public long AvailableMargin {  get { return Interlocked.Read(ref availableMargin); } }
+        public double Amount { get { double retval = 0; Interlocked.Exchange(ref retval, amount); return retval; } }
+        public double AvailableMargin { get { double retval = 0; Interlocked.Exchange(ref retval, availableMargin); return retval; } }
         public double UnrealisedPnL { get { double retval = 0;  Interlocked.Exchange(ref retval, unrealizedPnl); return retval; } }
 
         private void OnMarginUpdate(MarginResponse response)
@@ -29,12 +30,14 @@ namespace MGS
                 for (int ii = 0; ii < response.Data.Length; ii++)
                 {
                     var d = response.Data[ii];
-                    long avlblemgn = 0;
+                    double avlblemgn = 0;
                     double upl = 0;
-                    
+                    double amnt = 0;
+
                     if (d.AvailableMargin.HasValue)
                     {
-                        avlblemgn = d.AvailableMargin.Value;
+                        double dval = d.AvailableMargin.Value;
+                        avlblemgn = BitmexConverter.ConvertFromSatoshiToBtc(dval);
                     }
 
                     if (d.UnrealisedPnl.HasValue)
@@ -43,9 +46,15 @@ namespace MGS
                         upl = BitmexConverter.ConvertFromSatoshiToBtc(dval);
                     }
 
+                    if (d.Amount.HasValue)
+                    {
+                        double dval = d.Amount.Value;
+                        amnt = BitmexConverter.ConvertFromSatoshiToBtc(dval);
+                    }
 
                     Interlocked.Exchange(ref availableMargin, avlblemgn);
                     Interlocked.Exchange(ref unrealizedPnl, upl);
+                    Interlocked.Exchange(ref amount, amnt);
                 }
             }
             else if (response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Delete)
