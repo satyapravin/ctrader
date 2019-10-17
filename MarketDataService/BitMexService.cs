@@ -29,7 +29,8 @@ namespace BitMex
         private readonly string apiSecret;
         private readonly bool isLive = false;
         private HashSet<string> subscriptions = new HashSet<string>();
-        
+        private int webSocketRemainingRate = 10;
+        private int apiRemainingRate = 10;
         private OnBookChanged bookChangedHandler = null;
         private OnExecution executionHandler = null;
         private OnMargin marginHandler = null;
@@ -121,8 +122,24 @@ namespace BitMex
 
             });
 
-            client.Streams.InfoStream.Subscribe(info =>
+            client.Streams.InfoStream.Subscribe(sinfo =>
             {
+                string key = "remaining";
+
+                if (sinfo.Limit.ContainsKey(key))
+                {
+                    webSocketRemainingRate = (int)sinfo.Limit[key];
+                    if (webSocketRemainingRate < 3)
+                    {
+                        communicator.ReconnectTimeoutMs = 60 * 1000;
+                    }
+                    else
+                    {
+                        communicator.ReconnectTimeoutMs = 2000;
+                    }
+                }
+                else
+                    throw new ApplicationException("remaining websocket rate limit not found");
             });
 
             client.Streams.MarginStream.Subscribe(margin =>
@@ -135,7 +152,10 @@ namespace BitMex
 
             client.Streams.AuthenticationStream.Subscribe(auth =>
             {
-                SubscribeAll();
+                if (auth.Success)
+                    SubscribeAll();
+                else
+                    throw new ApplicationException("Authentication failed");
             });
 
             client.Streams.BookStream.Subscribe(book =>
