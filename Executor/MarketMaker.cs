@@ -11,14 +11,16 @@ namespace Executor
 {
     public class MarketMaker
     {
-        public string Symbol { get; }
+        public string Symbol { get { return prop.Symbol(); } }
+        private InstrProp prop;
         private volatile bool breakLoop = false;
-        private long inventory = 0;
+        private double positionValue = 0;
+        private double targetPrice = 0;
         private bool chaseM = true;
 
-        public MarketMaker(string symbol)
+        public MarketMaker(InstrProp prop)
         {
-            Symbol = symbol;
+            this.prop = prop;
         }
 
         public void Start()
@@ -28,11 +30,12 @@ namespace Executor
             thread.Start();
         }
 
-        public void FillTarget(long invtry, bool chase = true)
+        public void FillTarget(double positionValue, double avgPrice, bool chase = true)
         {
             lock(this)
             {
-                this.inventory = invtry;
+                this.positionValue = positionValue;
+                this.targetPrice = avgPrice;
                 this.chaseM = chase;
             }
         }
@@ -48,58 +51,69 @@ namespace Executor
                 double bidPrice = -1;
                 double askPrice = -1;
                 bool chase = true;
-                long qty = 0;
+                double pval = 0;
+                double avgp = 0;
 
                 lock(this)
                 {
                     bidPrice = mSvc.GetBestBid(Symbol); 
                     askPrice = mSvc.GetBestAsk(Symbol);
                     chase = chaseM;
-                    qty = inventory;
+                    pval = positionValue;
+                    avgp = targetPrice;
                 }
 
-                if (bidPrice > 0 && qty != 0 && askPrice > 0)
+                if (bidPrice > 0 && askPrice > 0)
                 {
                     long currentPosition = pSvc.GetQuantity(Symbol);
-                    var delta = qty - currentPosition;
+                    var posval = prop.GetPositionValue(currentPosition, bidPrice, askPrice);
+                    var delta = positionValue - posval;
+                    var deltaQ = prop.GetQuantity(delta, bidPrice, askPrice);
                     var req = oSvc.GetOrderForSymbol(Symbol);
 
-                    if (delta > 0)
+                    if (deltaQ > 0)
                     {
                         if (req == null)
                         {
                             if (chase)
                             {
-                                req = oSvc.NewBuyOrderPost(Symbol, delta, bidPrice);
+                                req = oSvc.NewBuyOrderPost(Symbol, deltaQ, bidPrice);
                             }
                             else
                             {
-                                req = oSvc.NewBuyOrderMkt(Symbol, delta);
+                                req = oSvc.NewBuyOrderMkt(Symbol, deltaQ);
                             }
+
                             req.Send();
                         }
                         else
                         {
-                            if (chase) req.Amend(delta, bidPrice);
+                            if (chase)
+                            {
+                                req.Amend(deltaQ, bidPrice);
+                            }
                         }
                     }
-                    else if (delta < 0)
+                    else if (deltaQ < 0)
                     {
                         if (req == null)
                         {
                             if (chase)
                             {
-                                req = oSvc.NewSellOrderPost(Symbol, -delta, askPrice);
+                                req = oSvc.NewSellOrderPost(Symbol, -deltaQ, askPrice);
                             }
                             else
                             {
-                                req = oSvc.NewSellOrderMkt(Symbol, -delta);
+                                req = oSvc.NewSellOrderMkt(Symbol, -deltaQ);
                             }
                             req.Send();
                         }
                         else
                         {
-                            if (chase) req.Amend(delta, askPrice);
+                            if (chase)
+                            {
+                                req.Amend(deltaQ, askPrice);
+                            }
                         }
                     }
                     else
