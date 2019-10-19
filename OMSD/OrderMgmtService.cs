@@ -16,6 +16,7 @@ namespace OMS
     public class OrderMgmtService : IEmbeddedService
     {
         #region private members
+        private static readonly 
         private OnOrder orderHandler = null;
         private Exchange.ExchangeService svc = null;
         private BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>> queue = new BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>>();
@@ -93,12 +94,22 @@ namespace OMS
             OrderDELETERequestParams param = new OrderDELETERequestParams();
             param.ClOrdID = req.ClientOrderID;
 
+            bool exists = false;
+
             lock (oms_cache)
             {
-                oms_pending_cache[req.ClientOrderID] = req;
+                foreach (var o in oms_pending_cache.Values)
+                {
+                    if (o.Symbol == req.Symbol)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
             }
 
-            await svc.Delete(param).ContinueWith(ProcessDeleteResult);
+            if (!exists)
+                await svc.Delete(param).ContinueWith(ProcessDeleteResult);
         }
 
         #endregion
@@ -112,11 +123,30 @@ namespace OMS
             else
                 orderHandler += handler;
         }
-        public MyOrder GetOrderForSymbol(string symbol)
+        public MyOrder GetLiveOrderForSymbol(string symbol)
         {
             MyOrder req = null;
             lock (oms_cache) { if (oms_cache.ContainsKey(symbol)) req = oms_cache[symbol]; }
             return req;
+        }
+
+        public MyOrder GetPendingOrderForSymbol(string symbol)
+        {
+            lock (oms_cache)
+            {
+                if (oms_cache.ContainsKey(symbol))
+                {
+                    foreach (var o in oms_pending_cache.Values)
+                    {
+                        if (o.Symbol == symbol)
+                        {
+                            return o;
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
         public bool Start()
         {
@@ -178,7 +208,7 @@ namespace OMS
                 Symbol = symbol,
                 Quantity = qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
-                Price = 0,
+                Price = price,
                 Side = MyOrder.OrderSide.BUY,
                 Type = MyOrder.OrderType.LIMIT,
             };
@@ -193,7 +223,7 @@ namespace OMS
                 Symbol = symbol,
                 Quantity = qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
-                Price = 0,
+                Price = price,
                 Side = MyOrder.OrderSide.SELL,
                 Type = MyOrder.OrderType.LIMIT,
             };
@@ -208,7 +238,7 @@ namespace OMS
                 Symbol = symbol,
                 Quantity = qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
-                Price = 0,
+                Price = price,
                 Side = MyOrder.OrderSide.BUY,
                 Type = MyOrder.OrderType.LIMIT_POST,
             };
@@ -223,7 +253,7 @@ namespace OMS
                 Symbol = symbol,
                 Quantity = qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
-                Price = 0,
+                Price = price,
                 Side = MyOrder.OrderSide.SELL,
                 Type = MyOrder.OrderType.LIMIT_POST,
             };
