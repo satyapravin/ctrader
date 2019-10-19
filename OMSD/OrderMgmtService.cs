@@ -18,7 +18,7 @@ namespace OMS
         #region private members
         private static readonly 
         private OnOrder orderHandler = null;
-        private Exchange.ExchangeService svc = null;
+        private ExchangeService.Exchange svc = null;
         private BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>> queue = new BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>>();
         private BlockingCollection<OrderDto> clientNotificationQ = new BlockingCollection<OrderDto>();
         private Dictionary<string, MyOrder> oms_cache = new Dictionary<string, MyOrder>();
@@ -158,8 +158,8 @@ namespace OMS
             thread.Start();
 
 
-            svc = (Exchange.ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
-            svc.SubscribeOrders(new Exchange.OnOrder(OnOrderMessage));
+            svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
+            svc.SubscribeOrders(new ExchangeService.OnOrder(OnOrderMessage));
             return true;
         }
         public bool Stop()

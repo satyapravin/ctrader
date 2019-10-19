@@ -1,7 +1,7 @@
 ﻿using EmbeddedService;
 using System;
 using System.Collections.Generic;
-using Exchange;
+using ExchangeService;
 using System.Reflection;
 using System.IO;
 using System.Threading;
@@ -12,11 +12,14 @@ using OMS;
 using log4net;
 using log4net.Config;
 using Bitmex.NET.Dtos;
+using CTrader.Logging;
+using ILog = CTrader.Logging.ILog;
 
 namespace CTrader
 {
     public class Program
     {
+        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
         private static void InitLogging()
         {
             XmlConfigurator.Configure(
@@ -47,11 +50,11 @@ namespace CTrader
 
         public static void Main()
         {
-            Console.WriteLine("Starting CTrader");
             InitLogging();
-            ExchangeService bitmexSvc = new ExchangeService(System.Configuration.ConfigurationManager.AppSettings["ApiKey"],
-                                                        System.Configuration.ConfigurationManager.AppSettings["ApiSecret"],
-                                                        bool.Parse(System.Configuration.ConfigurationManager.AppSettings["IsLive"]));
+            Log.Info("Starting CTrader");            
+            Exchange bitmexSvc = new Exchange(System.Configuration.ConfigurationManager.AppSettings["ApiKey"],
+                                              System.Configuration.ConfigurationManager.AppSettings["ApiSecret"],
+                                              bool.Parse(System.Configuration.ConfigurationManager.AppSettings["IsLive"]));
 
             MarketDataService mdsSvc = new MarketDataService();
             PositionService pSvc = new PositionService();
