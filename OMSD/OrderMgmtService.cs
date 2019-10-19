@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using OMS.Logging;
 
 namespace OMS
 {
@@ -16,7 +17,7 @@ namespace OMS
     public class OrderMgmtService : IEmbeddedService
     {
         #region private members
-        private static readonly OMS.Logging.ILog Log = Logging.LogProvider.GetCurrentClassLogger(); 
+        private static readonly ILog Log = LogProvider.GetCurrentClassLogger(); 
         private OnOrder orderHandler = null;
         private ExchangeService.Exchange svc = null;
         private BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>> queue = new BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>>();
@@ -302,7 +303,7 @@ namespace OMS
                             if (oms_cache[order.Symbol].ClientOrderID == cliOrdID)
                                 oms_cache.Remove(cliOrdID);
                             else
-                                System.Console.WriteLine("Canceled order not a live order for symbol " + order.Symbol);
+                                Log.Error ($"Canceled order not a live order for {order.Symbol}");
                         }
                     }
                 }
@@ -323,7 +324,7 @@ namespace OMS
 
                 if (order == null)
                 {
-                    System.Console.WriteLine("Order not found in cache for success " + cliOrdID);
+                    Log.Error($"Order {cliOrdID} not found in cache for success");
                 }
                 else
                 {
@@ -356,7 +357,7 @@ namespace OMS
 
                 if (order == null)
                 {
-                    System.Console.WriteLine("Order not found in cache for success " + cliOrdID);
+                    Log.Error($"Order {cliOrdID} not found in cache for success");
                 }
                 else
                 {
@@ -369,7 +370,7 @@ namespace OMS
         {
             if (task.Exception != null)
             {
-                Console.WriteLine((task.Exception.InnerException ?? task.Exception).Message);
+                Log.ErrorException("Cancel Order Failed", task.Exception.InnerException ?? task.Exception);
             }
             else
             {
@@ -382,12 +383,12 @@ namespace OMS
                     else if (d.OrdStatus == "Rejected")
                     {
                         TakeActionFailure(d.ClOrdId);
-                        Console.WriteLine("Rejection for symbol on cancel " + d.Symbol + " with reason " + d.OrdRejReason);
+                        Log.Warn($"Rejection for {d.Symbol} on cancel with reason {d.OrdRejReason}");
                     }
                     else if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
                     {
                         TakeActionFailure(d.ClOrdId);
-                        Console.WriteLine("Invalid order status for symbol on cancel " + d.Symbol + " with reason " + d.OrdRejReason);
+                        Log.Error($"Invalid order status for {d.Symbol} on cancel with reason {d.OrdRejReason}");
                     }
                 }
             }
@@ -397,7 +398,7 @@ namespace OMS
         {
             if (task.Exception != null)
             {
-                Console.WriteLine((task.Exception.InnerException ?? task.Exception).Message);
+                Log.ErrorException("New Order Failed", task.Exception.InnerException ?? task.Exception);
             }
             else
             {
@@ -405,7 +406,7 @@ namespace OMS
 
                 if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
                 {
-                    Console.WriteLine("Invalid order status on new order");
+                    Log.Error("Invalid order status on new order");
                     TakeActionFailure(d.ClOrdId);
                 }
                 else
@@ -419,20 +420,20 @@ namespace OMS
         {
             if (task.Exception != null)
             {
-                Console.WriteLine((task.Exception.InnerException ?? task.Exception).Message);
+                Log.ErrorException("Amend Order Failed", task.Exception.InnerException ?? task.Exception);
             }
             else
             {
                 var d = task.Result.Result;
                 if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
                 {
-                    Console.WriteLine("Invalid order status on amend order");
+                    Log.Error("Invalid order status on amend order");
                     TakeActionFailure(d.ClOrdId);
                 }
                 else if (d.OrdStatus == "Rejected")
                 {
                     TakeActionFailure(d.ClOrdId);
-                    Console.WriteLine("Order rejected on amend for symbol " + d.Symbol + " with reason " + d.OrdRejReason);
+                    Log.Error("Order rejected on amend for {d.Symbol} with reason {d.OrdRejReason}");
                 }
                 else
                 {

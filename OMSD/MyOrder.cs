@@ -1,4 +1,5 @@
 ﻿using Bitmex.NET.Dtos;
+using OMS.Logging;
 
 namespace OMS
 {
@@ -7,7 +8,7 @@ namespace OMS
 
     public class MyOrder
     {
-        private static Logging.ILog Log = Logging.LogProvider.GetCurrentClassLogger(); 
+        private static ILog Log = LogProvider.GetCurrentClassLogger(); 
         public enum OrderSide { UNDEFINED, BUY, SELL };
 
         public enum OrderType { UNDEFINED, MARKET, LIMIT, LIMIT_POST };
@@ -26,7 +27,7 @@ namespace OMS
             }
             else
             {
-                System.Console.WriteLine("Sending wrong order " + this.Request.ToString() + " " + Status.ToString());
+                Log.Error($"Sending invalid order {Symbol}, {this.Request}, {this.Status}");
             }
         }
 
@@ -38,7 +39,7 @@ namespace OMS
             }
             else
             {
-                System.Console.WriteLine("Sending wrong order " + this.Request.ToString() + " " + Status.ToString());
+                Log.Error($"Sending invalid order {Symbol}, {this.Request}, {this.Status}");
             }
         }
 
@@ -50,7 +51,7 @@ namespace OMS
             }
             else
             {
-                System.Console.WriteLine("Sending wrong order " + this.Request.ToString() + " " + Status.ToString());
+                Log.Error($"Sending invalid order {Symbol}, {this.Request}, {this.Status}");
             }
         }
  
