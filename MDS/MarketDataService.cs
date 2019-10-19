@@ -10,6 +10,7 @@ namespace MDS
 {
     public class MarketDataService : IEmbeddedService
     {
+        System.Threading.EventWaitHandle waitHandle = new System.Threading.AutoResetEvent(false);
         ConcurrentDictionary<string, OrderBook> booksBySymbol = new ConcurrentDictionary<string, OrderBook>();
         private List<string> symbols = new List<string>();
 
@@ -35,12 +36,12 @@ namespace MDS
                 return -1;
         }
 
-        public bool Start()
+        public System.Threading.EventWaitHandle Start()
         {
             var svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
             svc.Register(symbols);
             svc.SubscribeMarketData(new OnBookChanged(OnMarketData));
-            return true;
+            return waitHandle;
         }
 
         private void OnMarketData(BitmexSocketDataMessage<IEnumerable<OrderBookDto>> msg)
@@ -74,6 +75,8 @@ namespace MDS
                         }
                     }
                 }
+
+                waitHandle.Set();
             }
             else if (msg.Action == BitmexActions.Delete)
             {

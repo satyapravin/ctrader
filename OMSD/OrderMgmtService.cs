@@ -17,6 +17,7 @@ namespace OMS
     public class OrderMgmtService : IEmbeddedService
     {
         #region private members
+        private System.Threading.EventWaitHandle waitHandle = new System.Threading.AutoResetEvent(false);
         private static readonly ILog Log = LogProvider.GetCurrentClassLogger(); 
         private OnOrder orderHandler = null;
         private ExchangeService.Exchange svc = null;
@@ -149,7 +150,7 @@ namespace OMS
 
             return null;
         }
-        public bool Start()
+        public EventWaitHandle Start()
         {
             var thread = new Thread(new ThreadStart(OnClientNotification));
             thread.IsBackground = true;
@@ -161,7 +162,7 @@ namespace OMS
 
             svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
             svc.SubscribeOrders(new ExchangeService.OnOrder(OnOrderMessage));
-            return true;
+            return waitHandle;
         }
         public bool Stop()
         {
@@ -453,6 +454,8 @@ namespace OMS
                     oms_cancel_cache.Clear();
                     oms_amend_cache.Clear();
                 }
+
+                waitHandle.Set();
             }
 
             queue.Add(response);
