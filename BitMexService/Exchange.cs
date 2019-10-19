@@ -8,16 +8,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using ExchangeService.Logging;
 
-namespace Exchange
+namespace ExchangeService
 {
     public delegate void OnBookChanged(BitmexSocketDataMessage<IEnumerable<OrderBookDto>> response);
     public delegate void OnPosition(BitmexSocketDataMessage<IEnumerable<PositionDto>> response);
     public delegate void OnOrder(BitmexSocketDataMessage<IEnumerable<OrderDto>> response);
     public delegate void OnMargin(BitmexSocketDataMessage<IEnumerable<MarginDto>> response);
 
-    public class ExchangeService : IEmbeddedService
+    public class Exchange : IEmbeddedService
     {
+        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
         private IBitmexApiService bitmexREST = null;
         private IBitmexAuthorization _bitmexAuthorization;
         private IBitmexApiSocketService _bitmexApiSocketService;
@@ -31,7 +33,7 @@ namespace Exchange
         private OnPosition positionHandler = null;
 
         public ServiceType Service { get { return ServiceType.EXCHANGE; } }
-        public ExchangeService(string apiKey, string apiSecret, bool isLive = false)
+        public Exchange(string apiKey, string apiSecret, bool isLive = false)
         {
             this.isLive = isLive;
             this.apiKey = apiKey;
@@ -88,7 +90,10 @@ namespace Exchange
             _bitmexApiSocketService = BitmexApiSocketService.CreateDefaultApi(_bitmexAuthorization);
 
             if (!_bitmexApiSocketService.Connect())
+            {
+                Log.Error("Failed to connect to bimex websocket");
                 return false;
+            }
 
             _bitmexApiSocketService.Subscribe(BitmetSocketSubscriptions.CreateOrderSubsription(message =>
             {

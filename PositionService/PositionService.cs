@@ -13,8 +13,8 @@ namespace PMS
         public ServiceType Service { get { return ServiceType.PMS; } }
         public bool Start()
         {
-            Exchange.ExchangeService svc = (Exchange.ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
-            svc.SubscribePositions(new Exchange.OnPosition(OnPositionUpdate));
+            ExchangeService.Exchange svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
+            svc.SubscribePositions(new ExchangeService.OnPosition(OnPositionUpdate));
             return true;
         }
 

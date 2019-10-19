@@ -7,6 +7,7 @@ namespace OMS
 
     public class MyOrder
     {
+        private static Logging.ILog Log = Logging.LogProvider.GetCurrentClassLogger(); 
         public enum OrderSide { UNDEFINED, BUY, SELL };
 
         public enum OrderType { UNDEFINED, MARKET, LIMIT, LIMIT_POST };

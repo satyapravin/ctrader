@@ -4,7 +4,7 @@ using EmbeddedService;
 using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using Exchange;
+using ExchangeService;
 
 namespace MDS
 {
@@ -37,7 +37,7 @@ namespace MDS
 
         public bool Start()
         {
-            var svc = (ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
+            var svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
             svc.Register(symbols);
             svc.SubscribeMarketData(new OnBookChanged(OnMarketData));
             return true;

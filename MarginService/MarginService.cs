@@ -18,8 +18,8 @@ namespace MGS
 
         public bool Start()
         {
-            Exchange.ExchangeService svc = (Exchange.ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
-            svc.SubscribeMargin(new Exchange.OnMargin(new Exchange.OnMargin(OnMarginUpdate)));
+            ExchangeService.Exchange svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
+            svc.SubscribeMargin(new ExchangeService.OnMargin(new ExchangeService.OnMargin(OnMarginUpdate)));
             return true;
         }
 
