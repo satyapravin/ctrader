@@ -16,7 +16,7 @@ namespace OMS
     public class OrderMgmtService : IEmbeddedService
     {
         #region private members
-        private static readonly 
+        private static readonly OMS.Logging.ILog Log = Logging.LogProvider.GetCurrentClassLogger(); 
         private OnOrder orderHandler = null;
         private ExchangeService.Exchange svc = null;
         private BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>> queue = new BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>>();

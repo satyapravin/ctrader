@@ -69,60 +69,64 @@ namespace Executor
                     var posval = prop.GetPositionValue(currentQty, bidPrice, askPrice);
                     var delta = positionValue - posval;
                     var deltaQ = prop.GetQuantity(delta, bidPrice, askPrice);
-                    var req = oSvc.GetOrderForSymbol(Symbol);
+                    var liveReq = oSvc.GetLiveOrderForSymbol(Symbol);
+                    var pendingReq = oSvc.GetPendingOrderForSymbol(Symbol);
 
-                    if (deltaQ > 0)
+                    if (pendingReq == null)
                     {
-                        if (req == null)
+                        if (deltaQ > 0)
                         {
-                            if (chase)
+                            if (liveReq == null)
                             {
-                                req = oSvc.NewBuyOrderPost(Symbol, deltaQ, bidPrice);
+                                if (chase)
+                                {
+                                    liveReq = oSvc.NewBuyOrderPost(Symbol, deltaQ, bidPrice);
+                                }
+                                else
+                                {
+                                    liveReq = oSvc.NewBuyOrderMkt(Symbol, deltaQ);
+                                }
+
+                                liveReq.Send();
                             }
                             else
                             {
-                                req = oSvc.NewBuyOrderMkt(Symbol, deltaQ);
+                                liveReq.Cancel();
                             }
-
-                            req.Send();
                         }
-                        else
+                        else if (deltaQ < 0)
                         {
-                            req.Cancel();
-                        }
-                    }
-                    else if (deltaQ < 0)
-                    {
-                        if (req == null)
-                        {
-                            if (chase)
+                            if (liveReq == null)
                             {
-                                req = oSvc.NewSellOrderPost(Symbol, -deltaQ, askPrice);
+                                if (chase)
+                                {
+                                    liveReq = oSvc.NewSellOrderPost(Symbol, -deltaQ, askPrice);
+                                }
+                                else
+                                {
+                                    liveReq = oSvc.NewSellOrderMkt(Symbol, -deltaQ);
+                                }
+                                liveReq.Send();
                             }
                             else
                             {
-                                req = oSvc.NewSellOrderMkt(Symbol, -deltaQ);
+                                liveReq.Cancel();
                             }
-                            req.Send();
                         }
                         else
                         {
-                            req.Cancel();
-                        }
-                    }
-                    else
-                    {
-                        if (req != null)
-                        {
-                            if (chase)
+                            if (liveReq != null)
                             {
-                                if (req.Side == MyOrder.OrderSide.BUY && bidPrice != req.Price)
-                                    req.Amend(bidPrice);
-                                else if (req.Side == MyOrder.OrderSide.SELL && askPrice != req.Price)
-                                    req.Amend(askPrice);
+                                if (chase)
+                                {
+                                    if (liveReq.Side == MyOrder.OrderSide.BUY && bidPrice != liveReq.Price)
+                                        liveReq.Amend(bidPrice);
+                                    else if (liveReq.Side == MyOrder.OrderSide.SELL && askPrice != liveReq.Price)
+                                        liveReq.Amend(askPrice);
+                                }
                             }
-                        }
 
+                        }
                     }
                 }
 
