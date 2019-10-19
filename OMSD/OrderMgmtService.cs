@@ -17,6 +17,7 @@ namespace OMS
     public class OrderMgmtService : IEmbeddedService
     {
         #region private members
+        private volatile bool active = true;
         private static readonly ILog Log = LogProvider.GetCurrentClassLogger(); 
         private OnOrder orderHandler = null;
         private ExchangeService.Exchange svc = null;
@@ -32,6 +33,8 @@ namespace OMS
 
         internal async void AmendOrder(MyOrder req, decimal price)
         {
+            if (!active)
+                return;
             MyOrder amend = new MyOrder(this);
             amend.ClientOrderID = req.Symbol + DateTime.Now.Ticks.ToString();
             amend.Request = RequestType.AMEND;
@@ -56,6 +59,9 @@ namespace OMS
 
         internal async void NewOrder(MyOrder req)
         {
+            if (!active)
+                return;
+
             if (req.Status == OrderStateIdentifier.UNCONFIRMED)
             {
                 OrderPOSTRequestParams param = null;
@@ -82,6 +88,8 @@ namespace OMS
         }
         internal async void CancelOrder(MyOrder req)
         {
+            if (!active)
+                return;
             MyOrder cancel = new MyOrder(this);
             cancel.ClientOrderID = req.Symbol + DateTime.Now.Ticks.ToString();
             cancel.Request = RequestType.CANCEL;
@@ -107,6 +115,8 @@ namespace OMS
                         break;
                     }
                 }
+
+                oms_cancel_cache.Add(cancel.ClientOrderID, cancel);
             }
 
             if (!exists)
@@ -152,9 +162,11 @@ namespace OMS
         public bool Start()
         {
             var thread = new Thread(new ThreadStart(OnClientNotification));
+            thread.Name = "OMSThreadClient";
             thread.IsBackground = true;
             thread.Start();
             thread = new Thread(new ThreadStart(OnStart));
+            thread.Name = "OMSThreadServer";
             thread.IsBackground = true;
             thread.Start();
 
@@ -290,6 +302,10 @@ namespace OMS
                     {
                         oms_cache[order.Symbol] = order;
                     }
+                    else
+                    {
+                        Log.Error($"Not processing new order because ordStatus is {ordStatus}");
+                    }
                 }
                 else if (oms_cancel_cache.ContainsKey(cliOrdID))
                 {
@@ -305,6 +321,10 @@ namespace OMS
                             else
                                 Log.Error ($"Canceled order not a live order for {order.Symbol}");
                         }
+                        else
+                        {
+                            Log.Error($"Not processing cancel order because ordStatus is {ordStatus}");
+                        }
                     }
                 }
                 else if (oms_amend_cache.ContainsKey(cliOrdID))
@@ -318,6 +338,10 @@ namespace OMS
                         if (ordStatus != "Canceled" && ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")
                         {
                             oms_cache[order.Symbol] = order;
+                        }
+                        else
+                        {
+                            Log.Error($"Not processing amend order because ordStatus is {ordStatus}");
                         }
                     }
                 }
@@ -357,7 +381,7 @@ namespace OMS
 
                 if (order == null)
                 {
-                    Log.Error($"Order {cliOrdID} not found in cache for success");
+                    Log.Error($"Order {cliOrdID} not found in cache for failure");
                 }
                 else
                 {
@@ -389,6 +413,10 @@ namespace OMS
                     {
                         TakeActionFailure(d.ClOrdId);
                         Log.Error($"Invalid order status for {d.Symbol} on cancel with reason {d.OrdRejReason}");
+                    }
+                    else
+                    {
+                        Log.Warn($"Delete order request with unknown ordStatus {d.OrdStatus}");
                     }
                 }
             }
@@ -444,17 +472,6 @@ namespace OMS
         
         private void OnOrderMessage(BitmexSocketDataMessage<IEnumerable<OrderDto>> response)
         {
-            if (response.Action == BitmexActions.Partial)
-            {
-                lock(oms_cache)
-                {
-                    oms_cache.Clear();
-                    oms_pending_cache.Clear();
-                    oms_cancel_cache.Clear();
-                    oms_amend_cache.Clear();
-                }
-            }
-
             queue.Add(response);
         }
         private void OnStart()

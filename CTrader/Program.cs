@@ -22,9 +22,10 @@ namespace CTrader
         private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
         private static void InitLogging()
         {
+            string filename = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "log4net.xml");
             XmlConfigurator.Configure(
                 LogManager.GetRepository(Assembly.GetAssembly(typeof(LogManager))),
-                new FileInfo("log4net.config"));
+                new FileInfo(filename));
         }
 
         public static void processOMSMessage(OrderDto o)
@@ -117,7 +118,7 @@ namespace CTrader
                     if (grossposval == 0)
                         targetposval = amount / 3.0m;
                     else if (xcfposval != 0)
-                        targetposval = Math.Abs(xcfposval) / 3.0m;
+                        targetposval = Math.Abs(xcfposval);
 
                     xcfmaker.FillTarget(-targetposval, xcfAsk, true);
                     var currentQty = pSvc.GetQuantity(InstrXCFUSD.Symbol());

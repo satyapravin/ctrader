@@ -10,6 +10,7 @@ namespace MDS
 {
     public class MarketDataService : IEmbeddedService
     {
+        private bool started = false;
         ConcurrentDictionary<string, OrderBook> booksBySymbol = new ConcurrentDictionary<string, OrderBook>();
         private List<string> symbols = new List<string>();
 
@@ -37,10 +38,18 @@ namespace MDS
 
         public bool Start()
         {
-            var svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
-            svc.Register(symbols);
-            svc.SubscribeMarketData(new OnBookChanged(OnMarketData));
-            return true;
+            if (!this.started)
+            { 
+                var svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
+                svc.Register(symbols);
+                svc.SubscribeMarketData(new OnBookChanged(OnMarketData));
+                this.started = true;
+                return true;
+            }
+            else
+            {
+                throw new System.Exception("Starting twice");
+            }
         }
 
         private void OnMarketData(BitmexSocketDataMessage<IEnumerable<OrderBookDto>> msg)

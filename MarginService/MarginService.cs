@@ -33,7 +33,7 @@ namespace MGS
         }
         public decimal UnrealisedPnL
         {
-            get { lock (this) { return this.UnrealisedPnL; } }
+            get { lock (this) { return this.unrealizedPnl; } }
         }
 
         private void OnMarginUpdate(BitmexSocketDataMessage<IEnumerable<MarginDto>> response)

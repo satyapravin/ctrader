@@ -24,4 +24,10 @@
     <ProjectReference Include="..\ServiceLocator\EmbeddedService.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="log4net.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

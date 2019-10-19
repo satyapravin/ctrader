@@ -34,11 +34,11 @@ namespace Executor
         {
             if (posval > 0)
             {
-                return (posval * bid);
+                return Math.Round(posval * bid, 0);
             }
             else
             {
-                return (posval * ask);
+                return Math.Round(posval * ask, 0);
             }
         }
 
@@ -68,11 +68,11 @@ namespace Executor
         {
             if (posval > 0)
             {
-                return (long)Math.Round((posval / 0.000001m) / bid, 0);
+                return Math.Round((posval / 0.000001m) / bid, 0);
             }
             else
             {
-                return (long)Math.Round((posval / 0.000001m) / ask, 0);
+                return Math.Round((posval / 0.000001m) / ask, 0);
             }
         }
 
