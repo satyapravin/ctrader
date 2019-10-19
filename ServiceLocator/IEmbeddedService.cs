@@ -5,9 +5,11 @@ using System.Threading.Tasks;
 
 namespace EmbeddedService
 {
+    public enum ServiceType { EXCHANGE, MDS, OMS, PMS, MGS };
     public interface IEmbeddedService
     {
-        void Start();
+        public ServiceType Service { get; }
+        bool Start();
         bool Stop();
     }
 }

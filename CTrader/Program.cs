@@ -1,10 +1,7 @@
 ﻿using EmbeddedService;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
-using BitMex;
-using Serilog;
-using Serilog.Events;
+using Exchange;
 using System.Reflection;
 using System.IO;
 using System.Threading;
@@ -12,7 +9,9 @@ using MDS;
 using PMS;
 using MGS;
 using OMS;
-using Bitmex.Client.Websocket.Utils;
+using log4net;
+using log4net.Config;
+using Bitmex.NET.Dtos;
 
 namespace CTrader
 {
@@ -20,63 +19,37 @@ namespace CTrader
     {
         private static void InitLogging()
         {
-            var executingDir = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-            var logPath = Path.Combine(executingDir, "logs", "verbose.log");
-            Log.Logger = new LoggerConfiguration()
-                .WriteTo.File(logPath, rollingInterval: RollingInterval.Day, restrictedToMinimumLevel: LogEventLevel.Verbose)
-                .WriteTo.Console(LogEventLevel.Verbose)
-                .CreateLogger();
+            XmlConfigurator.Configure(
+                LogManager.GetRepository(Assembly.GetAssembly(typeof(LogManager))),
+                new FileInfo("log4net.config"));
         }
 
-        public static void OnOrderAck(OMS.OrderNew ntfy, OrderRequest req)
+        public static void processOMSMessage(OrderDto o)
         {
-
-        }
-
-        public static void OnOrderCanceld(OMS.OrderCanceled ntfy, OrderRequest req)
-        {
-
-        }
-
-        public static void OnOrderFilled(OMS.OrderFilled ntfy, OrderRequest req)
-        {
-            lock (lObject)
+            if (o.OrdStatus == "Filled" || o.OrdStatus == "PartiallyFilled")
             {
-                avgPx = ntfy.avgPx;
+                lock (lObject)
+                {
+                    avgPx = o.AvgPx.HasValue ? o.AvgPx.Value : 0;
+                    filledQty = o.OrderQty.HasValue ? o.OrderQty.Value : 0;
 
-                filledQty = ntfy.Qty;
-
-                if (!req.isBuy && filledQty > 0)
-                    filledQty *= -1;
+                    if (o.Side == "Sell")
+                    {
+                        filledQty *= -1;
+                    }
+                }
             }
-        }
-
-        public static void OnOrderPartialFilled(OMS.OrderPartiallyFilled ntfy, OrderRequest req)
-        {
-            lock (lObject)
-            {
-                avgPx = ntfy.avgPx;
-                filledQty = ntfy.cumQty;
-
-                if (!req.isBuy && filledQty > 0)
-                    filledQty *= -1;
-            }
-        }
-
-        public static void OnOrderRejected(OMS.OrderRejected ntfy, OrderRequest req)
-        {
-
         }
 
         public static object lObject = new object();
-        public static double avgPx = 0;
-        public static long filledQty = 0;
+        public static decimal avgPx = 0;
+        public static decimal filledQty = 0;
 
         public static void Main()
         {
             Console.WriteLine("Starting CTrader");
             InitLogging();
-            BitMexService bitmexSvc = new BitMexService(System.Configuration.ConfigurationManager.AppSettings["ApiKey"],
+            ExchangeService bitmexSvc = new ExchangeService(System.Configuration.ConfigurationManager.AppSettings["ApiKey"],
                                                         System.Configuration.ConfigurationManager.AppSettings["ApiSecret"],
                                                         bool.Parse(System.Configuration.ConfigurationManager.AppSettings["IsLive"]));
 
@@ -85,11 +58,11 @@ namespace CTrader
             OrderMgmtService omsSvc =  new OrderMgmtService();
             MarginService mgsSvc = new MarginService();
 
-            Locator.Instance.Register("BitMexService", bitmexSvc);
-            Locator.Instance.Register("MarketDataService", mdsSvc);
-            Locator.Instance.Register("PositionService", pSvc);
-            Locator.Instance.Register("OrderMgmtService", omsSvc);
-            Locator.Instance.Register("MarginService", mgsSvc);
+            Locator.Instance.Register(bitmexSvc);
+            Locator.Instance.Register(mdsSvc);
+            Locator.Instance.Register(pSvc);
+            Locator.Instance.Register(omsSvc);
+            Locator.Instance.Register(mgsSvc);
 
             Executor.XBTUSD InstrXBTUSD = new Executor.XBTUSD();
             Executor.ETHUSD InstrETHUSD = new Executor.ETHUSD();
@@ -100,12 +73,7 @@ namespace CTrader
             symbols.Add(InstrETHUSD.Symbol());
             symbols.Add(InstrXCFUSD.Symbol());
 
-            omsSvc.RegisterHandler(InstrXCFUSD.Symbol(), new Tuple<OnOrderAck, 
-                                                                   OnOrderCanceled, 
-                                                                   OnOrderFilled, 
-                                                                   OnOrderPartiallyFilled, 
-                                                                   OnOrderRejected>(OnOrderAck, OnOrderCanceld, OnOrderFilled,
-                                                                                    OnOrderPartialFilled, OnOrderRejected));
+            omsSvc.RegisterHandler(InstrXCFUSD.Symbol(), new OMS.OnOrder(processOMSMessage));
             mdsSvc.Register(symbols);
             mdsSvc.Start();
             pSvc.Start();
@@ -123,7 +91,7 @@ namespace CTrader
 
             while (true)
             {
-                var amount = mgsSvc.Amount * 0.75;
+                var amount = mgsSvc.Amount * 0.75m;
                 amount *= 30;
 
                 var btcAsk = mdsSvc.GetBestAsk(InstrXBTUSD.Symbol());
@@ -141,21 +109,21 @@ namespace CTrader
                     var xcfposval = InstrXCFUSD.GetPositionValue(pSvc.GetQuantity(InstrXCFUSD.Symbol()), xcfBid, xcfAsk);
                     
                     var grossposval = Math.Abs(btcposval) + Math.Abs(ethposval) + Math.Abs(xcfposval);
-                    double targetposval = 0;
+                    decimal targetposval = 0;
 
                     if (grossposval == 0)
-                        targetposval = amount / 3.0;
+                        targetposval = amount / 3.0m;
                     else if (xcfposval != 0)
-                        targetposval = Math.Abs(xcfposval) / 3.0;
+                        targetposval = Math.Abs(xcfposval) / 3.0m;
 
                     xcfmaker.FillTarget(-targetposval, xcfAsk, true);
                     var currentQty = pSvc.GetQuantity(InstrXCFUSD.Symbol());
 
-                    long fQty = 0;
+                    decimal fQty = 0;
 
                     lock(lObject) { fQty = filledQty; }
 
-                    double fillposval = 0;
+                    decimal fillposval = 0;
 
                     if (fQty != 0 || currentQty != 0)
                     {
@@ -171,8 +139,6 @@ namespace CTrader
 
                 Thread.Sleep(2000);
             }
-
-            bitmexSvc.Dispose();
         }
     }
 }

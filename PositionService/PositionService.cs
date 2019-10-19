@@ -1,47 +1,43 @@
-﻿using Bitmex.Client.Websocket.Responses.Positions;
-using EmbeddedService;
-using System;
+﻿using EmbeddedService;
+using Bitmex.NET.Dtos;
+using Bitmex.NET.Dtos.Socket;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 
 namespace PMS
 {
     public class PositionService : IEmbeddedService
     {
-        private ConcurrentDictionary<string, long> positions = new ConcurrentDictionary<string, long>();
+        private ConcurrentDictionary<string, decimal> positions = new ConcurrentDictionary<string, decimal>();
 
-        public void Start()
+        public ServiceType Service { get { return ServiceType.PMS; } }
+        public bool Start()
         {
-            BitMex.BitMexService svc = (BitMex.BitMexService)Locator.Instance.GetService("BitMexService");
-            svc.SubscribePositions(new BitMex.OnPosition(OnPositionUpdate));
+            Exchange.ExchangeService svc = (Exchange.ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
+            svc.SubscribePositions(new Exchange.OnPosition(OnPositionUpdate));
+            return true;
         }
 
-        private void OnPositionUpdate(PositionResponse response)
+        private void OnPositionUpdate(BitmexSocketDataMessage<IEnumerable<PositionDto>> response)
         {
-            if (response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Partial 
-                || response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Insert
-                || response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Update)
+            if (response.Action == BitmexActions.Partial 
+                || response.Action == BitmexActions.Insert
+                || response.Action == BitmexActions.Update)
             {
-                for(int ii=0; ii < response.Data.Length; ii++)
+                foreach(var d in response.Data)
                 {
-                    var d = response.Data[ii];
-                    long qty = 0;
-
-                    if (d.CurrentQty.HasValue)
-                    {
-                        qty = d.CurrentQty.Value;
-                    }
-
+                    decimal qty = d.CurrentQty;
                     positions[d.Symbol] = qty;
                 }
             }
-            else if (response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Delete)
+            else if (response.Action == BitmexActions.Delete)
             {
-                for (int ii=0; ii < response.Data.Length; ii++)
-                    positions[response.Data[ii].Symbol] = 0;
+                foreach(var d in response.Data)
+                    positions[d.Symbol] = 0;
             }
         }
 
-        public long GetQuantity(string symbol)
+        public decimal GetQuantity(string symbol)
         {
             if (positions.ContainsKey(symbol))
             {

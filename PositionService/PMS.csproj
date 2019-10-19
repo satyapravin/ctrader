@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MarketDataService\BitMex.csproj" />
+    <ProjectReference Include="..\BitMexService\ExchangeService.csproj" />
     <ProjectReference Include="..\ServiceLocator\EmbeddedService.csproj" />
   </ItemGroup>
 

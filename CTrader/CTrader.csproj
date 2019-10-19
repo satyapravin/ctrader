@@ -6,15 +6,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Serilog" Version="2.9.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="4.0.0" />
+    <PackageReference Include="log4net" Version="2.0.8" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.6.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BitMexService\ExchangeService.csproj" />
     <ProjectReference Include="..\Executor\Executor.csproj" />
     <ProjectReference Include="..\MarginService\MGS.csproj" />
-    <ProjectReference Include="..\MarketDataService\BitMex.csproj" />
     <ProjectReference Include="..\MDS\MDS.csproj" />
     <ProjectReference Include="..\OMSD\OMS.csproj" />
     <ProjectReference Include="..\PositionService\PMS.csproj" />

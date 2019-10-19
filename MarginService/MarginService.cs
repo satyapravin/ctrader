@@ -1,72 +1,98 @@
-﻿using Bitmex.Client.Websocket.Responses.Margins;
-using Bitmex.Client.Websocket.Utils;
+﻿using Bitmex.NET.Dtos;
+using Bitmex.NET.Dtos.Socket;
 using EmbeddedService;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace MGS
 {
     public class MarginService : IEmbeddedService
     {
-        private double availableMargin = 0;
-        private double unrealizedPnl = 0;
-        private double amount = 0;
-        public void Start()
+        private decimal availableMargin = 0;
+        private decimal unrealizedPnl = 0;
+        private decimal amount = 0;
+
+        public ServiceType Service { get { return ServiceType.MGS; } }
+
+        public bool Start()
         {
-            BitMex.BitMexService svc = (BitMex.BitMexService)Locator.Instance.GetService("BitMexService");
-            svc.SubscribeMargin(new BitMex.OnMargin(OnMarginUpdate));
+            Exchange.ExchangeService svc = (Exchange.ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
+            svc.SubscribeMargin(new Exchange.OnMargin(new Exchange.OnMargin(OnMarginUpdate)));
+            return true;
         }
 
-        public double Amount { get { double retval = 0; Interlocked.Exchange(ref retval, amount); return retval; } }
-        public double AvailableMargin { get { double retval = 0; Interlocked.Exchange(ref retval, availableMargin); return retval; } }
-        public double UnrealisedPnL { get { double retval = 0;  Interlocked.Exchange(ref retval, unrealizedPnl); return retval; } }
-
-        private void OnMarginUpdate(MarginResponse response)
+        public decimal Amount
         {
-            if (response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Partial
-                || response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Insert
-                || response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Update)
+            get { lock (this) { return this.amount; } }
+        }        
+        public decimal AvailableMargin
+        {
+            get { lock (this) { return this.availableMargin; } }
+        }
+        public decimal UnrealisedPnL
+        {
+            get { lock (this) { return this.UnrealisedPnL; } }
+        }
+
+        private void OnMarginUpdate(BitmexSocketDataMessage<IEnumerable<MarginDto>> response)
+        {
+            if (response.Action == BitmexActions.Partial
+                || response.Action == BitmexActions.Insert
+                || response.Action == BitmexActions.Update)
             {
-                for (int ii = 0; ii < response.Data.Length; ii++)
+                foreach (var d in response.Data)
                 {
-                    var d = response.Data[ii];
-                    double avlblemgn = 0;
-                    double upl = 0;
-                    double amnt = 0;
+                    decimal avlblemgn = 0;
+                    decimal upl = 0;
+                    decimal amnt = 0;
 
                     if (d.AvailableMargin.HasValue)
                     {
-                        double dval = d.AvailableMargin.Value;
-                        avlblemgn = BitmexConverter.ConvertFromSatoshiToBtc(dval);
+                        decimal dval = d.AvailableMargin.Value;
+                        avlblemgn = ConvertFromSatoshiToBtc(dval);
                     }
 
                     if (d.UnrealisedPnl.HasValue)
                     {
-                        double dval = d.UnrealisedPnl.Value;
-                        upl = BitmexConverter.ConvertFromSatoshiToBtc(dval);
+                        decimal dval = d.UnrealisedPnl.Value;
+                        upl = ConvertFromSatoshiToBtc(dval);
                     }
 
                     if (d.Amount.HasValue)
                     {
-                        double dval = d.Amount.Value;
-                        amnt = BitmexConverter.ConvertFromSatoshiToBtc(dval);
+                        decimal dval = d.Amount.Value;
+                        amnt = ConvertFromSatoshiToBtc(dval);
                     }
 
-                    Interlocked.Exchange(ref availableMargin, avlblemgn);
-                    Interlocked.Exchange(ref unrealizedPnl, upl);
-                    Interlocked.Exchange(ref amount, amnt);
+                    lock(this)
+                    {
+                        amount = amnt;
+                        availableMargin = avlblemgn;
+                        unrealizedPnl = upl;
+                    }
+
                 }
             }
-            else if (response.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Delete)
+            else if (response.Action == BitmexActions.Delete)
             {
-                for (int ii = 0; ii < response.Data.Length; ii++)
+                foreach (var d in response.Data)
                 {
-                    Interlocked.Exchange(ref availableMargin, 0);
-                    Interlocked.Exchange(ref unrealizedPnl, 0);
+                    lock(this)
+                    {
+                        availableMargin = 0;
+                        amount = 0;
+                        unrealizedPnl = 0;
+                    }
                 }
             }
         }
 
+        public static decimal ConvertFromSatoshiToBtc(decimal value)
+        {
+            return value * 0.00000001m;
+        }
         public bool Stop()
         {
             return true;

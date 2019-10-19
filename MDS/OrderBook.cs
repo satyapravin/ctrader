@@ -7,12 +7,12 @@ namespace MDS
     public class Level
     {
         private long id;
-        private double price;
-        private long quantity;
+        private decimal price;
+        private decimal quantity;
         public int height;
         public Level left, right;
 
-        public Level(long identifier, double p, long q)
+        public Level(long identifier, decimal p, decimal q)
         {
             id = identifier;
             price = p;
@@ -21,8 +21,22 @@ namespace MDS
         }
 
         public long Id { get { return id; } }
-        public double Price { get { return price; } }
-        public long Quantity { get { return Interlocked.Read(ref quantity); } set { Interlocked.Exchange(ref quantity, value); } }
+        public decimal Price { get { return price; } }
+        public decimal Quantity 
+        { 
+            get 
+            {
+                object retval = 0;
+                Interlocked.Exchange(ref retval, quantity);
+                return (decimal)retval;
+            } 
+            set 
+            {
+                object val = 0;
+                Interlocked.Exchange(ref val, value);
+                quantity = (decimal)val;
+            } 
+        }
     }
 
     public class Levels
@@ -30,12 +44,12 @@ namespace MDS
         private Level left = null;
         private Level right = null;
         private Dictionary<long, Level> levelById = new Dictionary<long, Level>();
-        private SortedDictionary<double, Level> levelByPrice = new SortedDictionary<double, Level>();
+        private SortedDictionary<decimal, Level> levelByPrice = new SortedDictionary<decimal, Level>();
 
-        public double Cheapest { get { Level lvl = null; Interlocked.Exchange(ref lvl, left); if (lvl != null) return lvl.Price; else return -1; } }
-        public double Expensive { get { Level lvl = null; Interlocked.Exchange(ref lvl, right); if (lvl != null) return lvl.Price; else return -1; } }
+        public decimal Cheapest { get { Level lvl = null; Interlocked.Exchange(ref lvl, left); if (lvl != null) return lvl.Price; else return -1; } }
+        public decimal Expensive { get { Level lvl = null; Interlocked.Exchange(ref lvl, right); if (lvl != null) return lvl.Price; else return -1; } }
 
-        public void Add(long msgId, double price, long quantity)
+        public void Add(long msgId, decimal price, decimal quantity)
         {
             var lvl = new Level(msgId, price, quantity);
             levelById[msgId] = lvl;
@@ -56,7 +70,7 @@ namespace MDS
             }
         }
 
-        public void Update(long msgId, long quantity)
+        public void Update(long msgId, decimal quantity)
         {
             levelById[msgId].Quantity = quantity;
         }

@@ -10,22 +10,22 @@ namespace EmbeddedService
         public static Locator Instance = new Locator();
         private Locator() { }
 
-        Dictionary<string, IEmbeddedService> services = new Dictionary<string, IEmbeddedService>();
-        public IEmbeddedService GetService(string name)
+        Dictionary<ServiceType, IEmbeddedService> services = new Dictionary<ServiceType, IEmbeddedService>();
+        public IEmbeddedService GetService(ServiceType serviceType)
         {
             IEmbeddedService service = null;
 
-            if (services.ContainsKey(name))
+            if (services.ContainsKey(serviceType))
             {
-                service = services[name];
+                service = services[serviceType];
             }
 
             return service;
         }
 
-        public void Register(string name, IEmbeddedService service)
+        public void Register(IEmbeddedService service)
         {
-            services[name] = service;
+            services[service.Service] = service;
         }
     }
 }

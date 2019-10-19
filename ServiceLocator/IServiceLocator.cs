@@ -6,7 +6,7 @@ namespace EmbeddedService
 {
     public interface IServiceLocator
     {
-        public IEmbeddedService GetService(string name);
-        public void Register(string name, IEmbeddedService svc);
+        public IEmbeddedService GetService(ServiceType svcType);
+        public void Register(IEmbeddedService svc);
     }
 }

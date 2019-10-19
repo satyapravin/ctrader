@@ -14,8 +14,8 @@ namespace Executor
         public string Symbol { get { return prop.Symbol(); } }
         private InstrProp prop;
         private volatile bool breakLoop = false;
-        private double positionValue = 0;
-        private double targetPrice = 0;
+        private decimal positionValue = 0;
+        private decimal targetPrice = 0;
         private bool chaseM = true;
 
         public MarketMaker(InstrProp prop)
@@ -30,7 +30,7 @@ namespace Executor
             thread.Start();
         }
 
-        public void FillTarget(double positionValue, double avgPrice, bool chase = true)
+        public void FillTarget(decimal positionValue, decimal avgPrice, bool chase = true)
         {
             lock(this)
             {
@@ -42,17 +42,17 @@ namespace Executor
 
         private void OnStart()
         {
-            var oSvc = (OrderMgmtService)Locator.Instance.GetService("OrderMgmtService");
-            var mSvc = (MarketDataService)Locator.Instance.GetService("MarketDataService");
-            var pSvc = (PositionService)Locator.Instance.GetService("PositionService");
+            var oSvc = (OrderMgmtService)Locator.Instance.GetService(ServiceType.OMS);
+            var mSvc = (MarketDataService)Locator.Instance.GetService(ServiceType.MDS);
+            var pSvc = (PositionService)Locator.Instance.GetService(ServiceType.PMS);
 
             while(!breakLoop)
             {
-                double bidPrice = -1;
-                double askPrice = -1;
+                decimal bidPrice = -1;
+                decimal askPrice = -1;
                 bool chase = true;
-                double pval = 0;
-                double avgp = 0;
+                decimal pval = 0;
+                decimal avgp = 0;
 
                 lock(this)
                 {
@@ -65,8 +65,8 @@ namespace Executor
 
                 if (bidPrice > 0 && askPrice > 0)
                 {
-                    long currentPosition = pSvc.GetQuantity(Symbol);
-                    var posval = prop.GetPositionValue(currentPosition, bidPrice, askPrice);
+                    decimal currentQty = pSvc.GetQuantity(Symbol);
+                    var posval = prop.GetPositionValue(currentQty, bidPrice, askPrice);
                     var delta = positionValue - posval;
                     var deltaQ = prop.GetQuantity(delta, bidPrice, askPrice);
                     var req = oSvc.GetOrderForSymbol(Symbol);
@@ -88,10 +88,7 @@ namespace Executor
                         }
                         else
                         {
-                            if (chase)
-                            {
-                                req.Amend(deltaQ, bidPrice);
-                            }
+                            req.Cancel();
                         }
                     }
                     else if (deltaQ < 0)
@@ -110,10 +107,7 @@ namespace Executor
                         }
                         else
                         {
-                            if (chase)
-                            {
-                                req.Amend(deltaQ, askPrice);
-                            }
+                            req.Cancel();
                         }
                     }
                     else
@@ -122,10 +116,10 @@ namespace Executor
                         {
                             if (chase)
                             {
-                                if (req.isBuy && bidPrice != req.price)
-                                    req.Amend(0, bidPrice);
-                                else if (!req.isBuy && askPrice != req.price)
-                                    req.Amend(0, askPrice);
+                                if (req.Side == MyOrder.OrderSide.BUY && bidPrice != req.Price)
+                                    req.Amend(bidPrice);
+                                else if (req.Side == MyOrder.OrderSide.SELL && askPrice != req.Price)
+                                    req.Amend(askPrice);
                             }
                         }
 

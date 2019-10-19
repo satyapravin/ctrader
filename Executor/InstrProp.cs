@@ -7,16 +7,16 @@ namespace Executor
     public interface InstrProp
     {
         string Symbol();
-        long GetQuantity(double posval, double bid, double ask);
+        decimal GetQuantity(decimal posval, decimal bid, decimal ask);
 
-        double GetPositionValue(long quantity, double bid, double ask);
+        decimal GetPositionValue(decimal quantity, decimal bid, decimal ask);
     }
 
     public class XBTUSD : InstrProp
     {
-        public double GetPositionValue(long quantity, double bid, double ask)
+        public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
-            double retval = quantity;
+            decimal retval = quantity;
 
             if (quantity > 0)
             {
@@ -30,15 +30,15 @@ namespace Executor
             return retval;
         }
 
-        public long GetQuantity(double posval, double bid, double ask)
+        public decimal GetQuantity(decimal posval, decimal bid, decimal ask)
         {
             if (posval > 0)
             {
-                return (long)(posval * bid);
+                return (posval * bid);
             }
             else
             {
-                return (long)(posval * ask);
+                return (posval * ask);
             }
         }
 
@@ -50,9 +50,9 @@ namespace Executor
 
     public class ETHUSD : InstrProp
     {
-        public double GetPositionValue(long quantity, double bid, double ask)
+        public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
-            double retval = 0.000001;
+            decimal retval = 0.000001m;
 
             if (quantity > 0)
             {
@@ -64,15 +64,15 @@ namespace Executor
             }
         }
 
-        public long GetQuantity(double posval, double bid, double ask)
+        public decimal GetQuantity(decimal posval, decimal bid, decimal ask)
         {
             if (posval > 0)
             {
-                return (long)Math.Round((posval / 0.000001) / bid, 0);
+                return (long)Math.Round((posval / 0.000001m) / bid, 0);
             }
             else
             {
-                return (long)Math.Round((posval / 0.000001) / ask, 0);
+                return (long)Math.Round((posval / 0.000001m) / ask, 0);
             }
         }
 
@@ -84,9 +84,9 @@ namespace Executor
 
     public class XCFUSD : InstrProp
     {
-        public double GetPositionValue(long quantity, double bid, double ask)
+        public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
-            double retval = quantity;
+            decimal retval = quantity;
 
             if (quantity > 0)
             {
@@ -100,15 +100,15 @@ namespace Executor
             return retval;
         }
 
-        public long GetQuantity(double posval, double bid, double ask)
+        public decimal GetQuantity(decimal posval, decimal bid, decimal ask)
         {
             if (posval > 0)
             {
-                return (long)Math.Round(posval / bid, 0);
+                return Math.Round(posval / bid, 0);
             }
             else
             {
-                return (long)Math.Round(posval / ask, 0);
+                return Math.Round(posval / ask, 0);
             }
         }
 

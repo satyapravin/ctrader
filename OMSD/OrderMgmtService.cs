@@ -1,469 +1,454 @@
-﻿using Bitmex.Client.Websocket.Responses.Executions;
-using Bitmex.Client.Websocket.Responses.Orders;
+﻿using Bitmex.NET;
+using Bitmex.NET.Dtos;
+using Bitmex.NET.Dtos.Socket;
+using Bitmex.NET.Models;
 using EmbeddedService;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace OMS
 {
-    public enum OrderRequestStatus { Undefined, New, Cancel, PartialFill, Fill, Rejected };
-    public class OrderNotifiction
-    {
-        public string clOrdID = string.Empty;
-        public OrderStatus status = OrderStatus.Undefined;
-    }
-    public class OrderNew : OrderNotifiction
-    {
-    }
-
-    public class OrderCanceled : OrderNotifiction
-    {
-    }
-
-    public class OrderPartiallyFilled : OrderNotifiction
-    {
-        public long cumQty = 0;
-        public double avgPx = 0;
-    }
-
-    public class OrderFilled : OrderNotifiction
-    {
-        public long Qty = 0;
-        public double avgPx = 0;
-    }
-
-    public class OrderRejected : OrderNotifiction
-    {
-        public string reason = string.Empty;
-    }
-
-    public class OrderRequest
-    {
-        public OrderRequest(OrderMgmtService svc)
-        {
-            this.oms_server = svc;
-        }
-
-        public bool Send()
-        {
-            if (!sent)
-            {
-                sent = oms_server.NewOrder(this);
-            }
-
-            return sent;
-        }
-
-        public bool Cancel()
-        {
-            if (sent && !canceled)
-            {
-                canceled = oms_server.CancelOrder(this);
-            }
-
-            return canceled;
-        }
-
-        public OrderRequest Amend(long delta, double price)
-        {
-            OrderRequest retval = null;
-
-            if (sent && !canceled)
-            {
-                if (delta == 0 && price != this.price)
-                {
-                   return oms_server.AmendOrder(this, this.quantity, price);
-                }
-
-                var qty = this.isBuy ? this.quantity : -this.quantity;
-                long newqty = qty + delta;
-
-                if (this.isBuy)
-                {
-                    if (newqty < 0)
-                    {
-                        this.Cancel();
-                    }
-                    else if (newqty > 0)
-                    {
-                        oms_server.AmendOrder(this, newqty, price);
-                    }
-                    else
-                    {
-                        this.Cancel();
-                    }
-                }
-                else
-                {
-                    if (newqty > 0)
-                    {
-                        this.Cancel();
-                    }
-                    else if (newqty < 0)
-                    {
-                        oms_server.AmendOrder(this, Math.Abs(newqty), price);
-                    }
-                    else
-                    {
-                        this.Cancel();
-                    }
-                }
-            }
-
-            return retval;
-        }
-
-
-        public void Copy(OrderRequest req)
-        {
-            lock (req)
-            {
-                this.ordStatus = req.ordStatus;
-                this.exceptionString = req.exceptionString;
-                this.sent = req.sent;
-                this.canceled = req.canceled;
-                this.symbol = req.symbol;
-                this.isBuy = req.isBuy;
-                this.clOrdID = req.clOrdID;
-                this.OriginalclOrdID = req.OriginalclOrdID;
-                this.isLimit = req.isLimit;
-                this.postOnly = req.postOnly;
-                this.quantity = req.quantity;
-                this.price = req.price;
-                this.previous = req.previous;
-                this.avgPx = req.avgPx;
-                this.cumQty = req.cumQty;
-            }
-        }
-
-        public OrderRequestStatus ordStatus = OrderRequestStatus.Undefined;
-        public string exceptionString = string.Empty;
-        private bool sent = false;
-        private bool canceled = false;
-        private OrderMgmtService oms_server = null;
-        public string symbol = string.Empty;
-        public bool isBuy = false;
-        public string clOrdID = string.Empty;
-        public string OriginalclOrdID = string.Empty;
-        public bool isLimit = true;
-        public bool postOnly = true;
-        public long quantity = 0;
-        public double price = 0;
-        public OrderRequest previous = null;
-        public double avgPx = 0;
-        public long cumQty = 0;
-    }
-
-    public delegate void OnOrderAck(OrderNew ntfy, OrderRequest r);
-    public delegate void OnOrderCanceled(OrderCanceled ntfy, OrderRequest r);
-    public delegate void OnOrderPartiallyFilled(OrderPartiallyFilled ntfy, OrderRequest r);
-    public delegate void OnOrderFilled(OrderFilled ntfy, OrderRequest r);
-    public delegate void OnOrderRejected(OrderRejected ntfy, OrderRequest r);
+    public delegate void OnOrder(OrderDto o);
 
     public class OrderMgmtService : IEmbeddedService
     {
-        private BitMex.BitMexService svc = null;
-        private BlockingCollection<Order> queue = new BlockingCollection<Order>();
-        private ConcurrentDictionary<string, OrderRequest> oms_cache = new ConcurrentDictionary<string, OrderRequest>();
-        private ConcurrentDictionary<string, 
-                Tuple<OnOrderAck, 
-                    OnOrderCanceled, 
-                    OnOrderFilled, 
-                    OnOrderPartiallyFilled, 
-                    OnOrderRejected>> symbolHandlers = new ConcurrentDictionary<string, Tuple<OnOrderAck, 
-                                                                                              OnOrderCanceled, 
-                                                                                              OnOrderFilled, 
-                                                                                              OnOrderPartiallyFilled, 
-                                                                                              OnOrderRejected>>();
+        #region private members
+        private OnOrder orderHandler = null;
+        private Exchange.ExchangeService svc = null;
+        private BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>> queue = new BlockingCollection<BitmexSocketDataMessage<IEnumerable<OrderDto>>>();
+        private BlockingCollection<OrderDto> clientNotificationQ = new BlockingCollection<OrderDto>();
+        private Dictionary<string, MyOrder> oms_cache = new Dictionary<string, MyOrder>();
+        private Dictionary<string, MyOrder> oms_pending_cache = new Dictionary<string, MyOrder>();
+        private Dictionary<string, MyOrder> oms_cancel_cache = new Dictionary<string, MyOrder>();
+        private Dictionary<string, MyOrder> oms_amend_cache = new Dictionary<string, MyOrder>();
+        #endregion
 
-        public void RegisterHandler(string symbol, Tuple<OnOrderAck, OnOrderCanceled, OnOrderFilled, OnOrderPartiallyFilled, OnOrderRejected> tpl)
+        #region internal methods
+
+        internal async void AmendOrder(MyOrder req, decimal price)
         {
-            symbolHandlers[symbol] = tpl;
+            MyOrder amend = new MyOrder(this);
+            amend.ClientOrderID = req.Symbol + DateTime.Now.Ticks.ToString();
+            amend.Request = RequestType.AMEND;
+            amend.ChildOrder = req;
+            amend.Symbol = req.Symbol;
+            amend.Quantity = req.Quantity;
+            amend.Price = price;
+            amend.Side = req.Side;
+            amend.Type = req.Type;
+            OrderPUTRequestParams param = new OrderPUTRequestParams();
+            param.ClOrdID = amend.ClientOrderID;
+            param.OrigClOrdID = amend.ChildOrder.ClientOrderID;
+            param.Price = amend.Price;
+
+            lock (oms_cache)
+            {
+                oms_pending_cache[req.ClientOrderID] = req;
+            }
+
+            await svc.Put(param).ContinueWith(AmendOrderResult);
         }
 
-        public OrderRequest GetOrderForSymbol(string symbol)
+        internal async void NewOrder(MyOrder req)
         {
-            OrderRequest req = null;
-            oms_cache.TryGetValue(symbol, out req);
+            if (req.Status == OrderStateIdentifier.UNCONFIRMED)
+            {
+                OrderPOSTRequestParams param = null;
+
+                if (req.Type == MyOrder.OrderType.LIMIT_POST)
+                {
+                    param = OrderPOSTRequestParams.CreateSimplePost(req.Symbol, req.Quantity, req.Price,
+                                                                    req.Side == MyOrder.OrderSide.BUY ? OrderSide.Buy : OrderSide.Sell);
+                }
+                else if (req.Type == MyOrder.OrderType.MARKET)
+                {
+                    param = OrderPOSTRequestParams.CreateSimpleMarket(req.Symbol, req.Quantity,
+                                                                      req.Side == MyOrder.OrderSide.BUY ? OrderSide.Buy : OrderSide.Sell);
+                }
+                param.ClOrdID = req.ClientOrderID;
+
+                lock (oms_cache)
+                {
+                    oms_pending_cache[req.ClientOrderID] = req;
+                }
+
+                await svc.Post(param).ContinueWith(NewOrderResult);
+            }
+        }
+        internal async void CancelOrder(MyOrder req)
+        {
+            MyOrder cancel = new MyOrder(this);
+            cancel.ClientOrderID = req.Symbol + DateTime.Now.Ticks.ToString();
+            cancel.Request = RequestType.CANCEL;
+            cancel.ChildOrder = req;
+            cancel.Symbol = req.Symbol;
+            cancel.Quantity = req.Quantity;
+            cancel.Price = req.Price;
+            cancel.Side = req.Side;
+            cancel.Type = req.Type;
+
+            OrderDELETERequestParams param = new OrderDELETERequestParams();
+            param.ClOrdID = req.ClientOrderID;
+
+            lock (oms_cache)
+            {
+                oms_pending_cache[req.ClientOrderID] = req;
+            }
+
+            await svc.Delete(param).ContinueWith(ProcessDeleteResult);
+        }
+
+        #endregion
+
+        #region public methods
+        public ServiceType Service { get { return ServiceType.OMS; } }
+        public void RegisterHandler(string symbol, OnOrder handler)
+        {
+            if (orderHandler == null)
+                orderHandler = handler;
+            else
+                orderHandler += handler;
+        }
+        public MyOrder GetOrderForSymbol(string symbol)
+        {
+            MyOrder req = null;
+            lock (oms_cache) { if (oms_cache.ContainsKey(symbol)) req = oms_cache[symbol]; }
             return req;
         }
-        public void Start()
+        public bool Start()
         {
-            var thread = new Thread(new ThreadStart(OnStart));
+            var thread = new Thread(new ThreadStart(OnClientNotification));
+            thread.IsBackground = true;
+            thread.Start();
+            thread = new Thread(new ThreadStart(OnStart));
             thread.IsBackground = true;
             thread.Start();
 
-            svc = (BitMex.BitMexService)Locator.Instance.GetService("BitMexService");
-            svc.SubscribeOrders(new BitMex.OnOrder(OnOrderMessage));
-            //svc.SubscribeExecutions(new BitMex.OnExecution(OnExecutionMessage)); // do we need this now?
-        }
 
-        public OrderRequest NewBuyOrderMkt(string symbol, long qty)
-        {
-            return new OrderRequest(this)
-            {
-                clOrdID = symbol + DateTime.Now.Ticks.ToString(),
-                symbol = symbol,
-                quantity = qty,
-                isBuy = true,
-                isLimit = false,
-                postOnly = false
-            };
-        }
-
-        public OrderRequest NewSellOrderMkt(string symbol, long qty)
-        {
-            return new OrderRequest(this)
-            {
-                clOrdID = symbol + DateTime.Now.Ticks.ToString(),
-                symbol = symbol,
-                quantity = qty,
-                isBuy = false,
-                isLimit = false,
-                postOnly = false
-            };
-        }
-
-        public OrderRequest NewBuyOrderLimit(string symbol, long qty, double price)
-        {
-            return new OrderRequest(this)
-            {
-                clOrdID = symbol + DateTime.Now.Ticks.ToString(),
-                symbol = symbol,
-                quantity = qty,
-                price = price,
-                isBuy = true,
-                isLimit = true,
-                postOnly = false
-            };
-        }
-
-        public OrderRequest NewSellOrderLimit(string symbol, long qty, double price)
-        {
-            return new OrderRequest(this)
-            {
-                clOrdID = symbol + DateTime.Now.Ticks.ToString(),
-                symbol = symbol,
-                quantity = qty,
-                price = price,
-                isBuy = false,
-                isLimit = true,
-                postOnly = false
-            };
-        }
-
-        public OrderRequest NewBuyOrderPost(string symbol, long qty, double price)
-        {
-            return new OrderRequest(this)
-            {
-                clOrdID = symbol + DateTime.Now.Ticks.ToString(),
-                symbol = symbol,
-                quantity = qty,
-                price = price,
-                isBuy = true,
-                isLimit = true,
-                postOnly = true
-            };
-        }
-
-        public OrderRequest NewSellOrderPost(string symbol, long qty, double price)
-        {
-            return new OrderRequest(this)
-            {
-                clOrdID = symbol + DateTime.Now.Ticks.ToString(),
-                symbol = symbol,
-                quantity = qty,
-                price = price,
-                isBuy = false,
-                isLimit = true,
-                postOnly = true
-            };
-        }
-
-        internal bool NewOrder(OrderRequest req)
-        {
-            if (oms_cache.ContainsKey(req.symbol))
-                throw new ApplicationException("Cannot have simultaneous orders on same symbol");
-            oms_cache[req.symbol] = req;
-            var param = new Dictionary<string, object>();
-            param["symbol"] = req.symbol;
-            param["side"] = req.isBuy ? "Buy" : "Sell";
-            param["orderQty"] = req.quantity;
-            param["ordType"] = req.isLimit ? "Limit" : "Market";
-            param["clOrdID"] = req.clOrdID;
-            if (req.isLimit)
-            {
-                param["price"] = req.price;
-            }
-
-            if (req.postOnly)
-            {
-                param["execInst"] = "ParticipateDoNotInitiate";
-            }
-
-            var retval = svc.Query("POST", "/order", param, true);
+            svc = (Exchange.ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
+            svc.SubscribeOrders(new Exchange.OnOrder(OnOrderMessage));
             return true;
         }
-
-        internal OrderRequest AmendOrder(OrderRequest req, long qty, double price)
-        {
-            OrderRequest amend = new OrderRequest(this);
-            amend.Copy(req);
-            amend.exceptionString = string.Empty;
-            amend.OriginalclOrdID = req.clOrdID;
-            amend.clOrdID = req.symbol + DateTime.Now.Ticks.ToString();
-            amend.quantity = qty;
-            amend.price = price;
-            amend.previous = req;
-            amend.ordStatus = OrderRequestStatus.Undefined;
-
-            long leavesQty = 0;
-
-            if (req.ordStatus == OrderRequestStatus.PartialFill)
-            {
-                leavesQty = qty - req.cumQty;
-            }
-
-            oms_cache[req.symbol] = amend;
-
-            var param = new Dictionary<string, object>();
-            param["orderQty"] = amend.quantity;
-            param["clOrdID"] = amend.clOrdID;
-            param["price"] = amend.price;
-            param["origClOrdID"] = amend.OriginalclOrdID;
-
-            if (req.ordStatus == OrderRequestStatus.PartialFill)
-                param["leavesQty"] = leavesQty;
-
-            var retval = svc.Query("PUT", "/order", param, true);
-            return amend;
-        }
-
-        internal bool CancelOrder(OrderRequest req)
-        {
-            var param = new Dictionary<string, object>();
-            lock (req)
-            {
-                param["clOrdID"] = req.clOrdID;
-            }
-            var retval = svc.Query("DELETE", "/order", param, true);
-            return true;
-        }
-
-        void OnOrderMessage(OrderResponse response)
-        {
-            for (int ii = 0; ii < response.Data.Length; ii++)
-            {
-                queue.Add(response.Data[ii]);                
-            }
-        }
-
-        void OnExecutionMessage(ExecutionResponse response)
-        {
-            throw new NotImplementedException("Should not subscribe to execution messages");
-        }
-
-        void OnStart()
-        {
-            foreach (var d in queue.GetConsumingEnumerable(CancellationToken.None))
-            {
-                if (d.OrdStatus == OrderStatus.New)
-                {
-                    if (oms_cache.ContainsKey(d.Symbol))
-                    {
-                        var req = oms_cache[d.Symbol];
-                        lock (req)
-                        {
-                            req.ordStatus = OrderRequestStatus.New;
-                        }
-
-                        if (symbolHandlers.ContainsKey(d.Symbol))
-                            symbolHandlers[d.Symbol].Item1(new OrderNew() { clOrdID = d.ClOrdId, status = d.OrdStatus }, req);
-                    }
-                }
-
-                if (d.OrdStatus == OrderStatus.Canceled)
-                {
-                    if (oms_cache.ContainsKey(d.Symbol))
-                    {
-                        OrderRequest req = null;
-                        oms_cache.Remove(d.Symbol, out req);
-
-                        lock (req)
-                        {
-                            req.ordStatus = OrderRequestStatus.Cancel;
-                        }
-
-                        if (symbolHandlers.ContainsKey(d.Symbol))
-                            symbolHandlers[d.Symbol].Item2(new OrderCanceled() { clOrdID = d.ClOrdId, status = d.OrdStatus }, req);
-                    }
-                }
-
-                if (d.OrdStatus == OrderStatus.Filled)
-                {
-                    if (oms_cache.ContainsKey(d.Symbol))
-                    {
-                        OrderRequest req = null;
-                        oms_cache.Remove(d.Symbol, out req);
-                        lock (req)
-                        {
-                            req.ordStatus = OrderRequestStatus.Fill;
-                        }
-
-                        if (symbolHandlers.ContainsKey(d.Symbol))
-                            symbolHandlers[d.Symbol].Item3(new OrderFilled() { clOrdID = d.ClOrdId, status = d.OrdStatus, Qty = d.OrderQty.HasValue ? d.OrderQty.Value : 0 }, req);
-                    }
-                }
-
-                if (d.OrdStatus == OrderStatus.PartiallyFilled)
-                {
-                    if (oms_cache.ContainsKey(d.Symbol))
-                    {
-                        OrderRequest req = oms_cache[d.Symbol];
-
-                        lock (req)
-                        {
-                            req.ordStatus = OrderRequestStatus.PartialFill;
-                            req.cumQty = d.CumQty.HasValue ? d.CumQty.Value : 0;
-                            req.avgPx = d.AvgPx.HasValue ? d.AvgPx.Value : 0;
-                        }
-
-                        if (symbolHandlers.ContainsKey(d.Symbol))
-                            symbolHandlers[d.Symbol].Item4(new OrderPartiallyFilled() { clOrdID = d.ClOrdId, status = d.OrdStatus, cumQty = d.CumQty.HasValue ? d.CumQty.Value : 0, avgPx = d.AvgPx.HasValue ? d.AvgPx.Value : 0 }, req);
-                    }
-                }
-
-                if (d.OrdStatus == OrderStatus.Rejected)
-                {
-                    if (oms_cache.ContainsKey(d.Symbol))
-                    {
-                        OrderRequest req = null;
-                        oms_cache.Remove(d.Symbol, out req);
-
-                        if (req.previous != null)
-                        {
-                            oms_cache[d.Symbol] = req.previous;
-                        }
-                        
-                        lock (req)
-                        {
-                            req.ordStatus = OrderRequestStatus.Rejected;
-                            req.exceptionString = d.OrdRejReason;
-                        }
-
-                        if (symbolHandlers.ContainsKey(d.Symbol))
-                            symbolHandlers[d.Symbol].Item5(new OrderRejected() { clOrdID = d.ClOrdId, status = d.OrdStatus, reason = d.OrdRejReason }, req);
-                    }
-                }
-            }
-        }
-
         public bool Stop()
         {
             queue.CompleteAdding();
             return true;
         }
+
+        #region ordering methods
+        public MyOrder NewBuyOrderMkt(string symbol, decimal qty)
+        {
+            return new MyOrder(this)
+            {
+                Request = RequestType.NEW,
+                ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
+                Symbol = symbol,
+                Quantity = qty,
+                Status = OrderStateIdentifier.UNCONFIRMED,
+                Price = 0,
+                Side = MyOrder.OrderSide.BUY,
+                Type = MyOrder.OrderType.MARKET,
+            };
+        }
+
+        public MyOrder NewSellOrderMkt(string symbol, decimal qty)
+        {
+            return new MyOrder(this)
+            {
+                Request = RequestType.NEW,
+                ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
+                Symbol = symbol,
+                Quantity = qty,
+                Status = OrderStateIdentifier.UNCONFIRMED,
+                Price = 0,
+                Side = MyOrder.OrderSide.SELL,
+                Type = MyOrder.OrderType.MARKET,
+            };
+        }
+
+        public MyOrder NewBuyOrderLimit(string symbol, decimal qty, decimal price)
+        {
+            return new MyOrder(this)
+            {
+                Request = RequestType.NEW,
+                ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
+                Symbol = symbol,
+                Quantity = qty,
+                Status = OrderStateIdentifier.UNCONFIRMED,
+                Price = 0,
+                Side = MyOrder.OrderSide.BUY,
+                Type = MyOrder.OrderType.LIMIT,
+            };
+        }
+
+        public MyOrder NewSellOrderLimit(string symbol, decimal qty, decimal price)
+        {
+            return new MyOrder(this)
+            {
+                Request = RequestType.NEW,
+                ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
+                Symbol = symbol,
+                Quantity = qty,
+                Status = OrderStateIdentifier.UNCONFIRMED,
+                Price = 0,
+                Side = MyOrder.OrderSide.SELL,
+                Type = MyOrder.OrderType.LIMIT,
+            };
+        }
+
+        public MyOrder NewBuyOrderPost(string symbol, decimal qty, decimal price)
+        {
+            return new MyOrder(this)
+            {
+                Request = RequestType.NEW,
+                ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
+                Symbol = symbol,
+                Quantity = qty,
+                Status = OrderStateIdentifier.UNCONFIRMED,
+                Price = 0,
+                Side = MyOrder.OrderSide.BUY,
+                Type = MyOrder.OrderType.LIMIT_POST,
+            };
+        }
+
+        public MyOrder NewSellOrderPost(string symbol, decimal qty, decimal price)
+        {
+            return new MyOrder(this)
+            {
+                Request = RequestType.NEW,
+                ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
+                Symbol = symbol,
+                Quantity = qty,
+                Status = OrderStateIdentifier.UNCONFIRMED,
+                Price = 0,
+                Side = MyOrder.OrderSide.SELL,
+                Type = MyOrder.OrderType.LIMIT_POST,
+            };
+        }
+        #endregion
+        #endregion
+
+        #region private methods
+        private void EnCache(MyOrder order, RequestType requestType)
+        {
+            lock (oms_cache)
+            {
+                if (requestType == RequestType.NEW)
+                    oms_pending_cache.Add(order.ClientOrderID, order);
+                else if (requestType == RequestType.AMEND)
+                    oms_amend_cache.Add(order.ClientOrderID, order);
+                else if (requestType == RequestType.CANCEL)
+                    oms_cancel_cache.Add(order.ClientOrderID, order);
+            }
+        }
+        private void TakeActionSuccess(string cliOrdID, string ordStatus, string origCliOrdID = null)
+        {
+            lock (oms_cache)
+            {
+                MyOrder order = null;
+
+                if (oms_pending_cache.ContainsKey(cliOrdID))
+                {
+                    order = oms_pending_cache[cliOrdID];
+                    oms_pending_cache.Remove(cliOrdID);
+
+                    if (ordStatus != "Canceled" && ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")                        
+                    {
+                        oms_cache[order.Symbol] = order;
+                    }
+                }
+                else if (oms_cancel_cache.ContainsKey(cliOrdID))
+                {
+                    order = oms_cancel_cache[cliOrdID];
+                    oms_cancel_cache.Remove(cliOrdID);
+                    var child = order.ChildOrder;
+                    if (child.ClientOrderID == cliOrdID && oms_cache.ContainsKey(order.Symbol))
+                    {
+                        if (ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")
+                        {
+                            if (oms_cache[order.Symbol].ClientOrderID == cliOrdID)
+                                oms_cache.Remove(cliOrdID);
+                            else
+                                System.Console.WriteLine("Canceled order not a live order for symbol " + order.Symbol);
+                        }
+                    }
+                }
+                else if (oms_amend_cache.ContainsKey(cliOrdID))
+                {
+                    order = oms_amend_cache[cliOrdID];
+                    oms_amend_cache.Remove(cliOrdID);
+                    var child = order.ChildOrder;
+
+                    if (oms_cache.ContainsKey(child.Symbol) && origCliOrdID != null && origCliOrdID == child.ClientOrderID)
+                    {
+                        if (ordStatus != "Canceled" && ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")
+                        {
+                            oms_cache[order.Symbol] = order;
+                        }
+                    }
+                }
+
+                if (order == null)
+                {
+                    System.Console.WriteLine("Order not found in cache for success " + cliOrdID);
+                }
+                else
+                {
+                    order.Status = OrderStateIdentifier.CONFIRMED;
+                }
+            }
+        }
+
+        private void TakeActionFailure(string cliOrdID)
+        {
+            lock (oms_cache)
+            {
+                MyOrder order = null;
+
+                if (oms_pending_cache.ContainsKey(cliOrdID))
+                {
+                    order = oms_pending_cache[cliOrdID];
+                    oms_pending_cache.Remove(cliOrdID);
+                }
+                else if (oms_cancel_cache.ContainsKey(cliOrdID))
+                {
+                    order = oms_cancel_cache[cliOrdID];
+                    oms_cancel_cache.Remove(cliOrdID);
+                }
+                else if (oms_amend_cache.ContainsKey(cliOrdID))
+                {
+                    order = oms_amend_cache[cliOrdID];
+                    oms_amend_cache.Remove(cliOrdID);
+                }
+
+                if (order == null)
+                {
+                    System.Console.WriteLine("Order not found in cache for success " + cliOrdID);
+                }
+                else
+                {
+                    order.Status = OrderStateIdentifier.CONFIRMED;
+                }
+            }
+        }
+    
+        private void ProcessDeleteResult(Task<BitmexApiResult<List<OrderDto>>> task)
+        {
+            if (task.Exception != null)
+            {
+                Console.WriteLine((task.Exception.InnerException ?? task.Exception).Message);
+            }
+            else
+            {
+                foreach (var d in task.Result.Result)
+                {
+                    if (d.OrdStatus == "PendingCancel" || d.OrdStatus == "Canceled")
+                    {
+                        TakeActionSuccess(d.ClOrdId, d.OrdStatus);
+                    }
+                    else if (d.OrdStatus == "Rejected")
+                    {
+                        TakeActionFailure(d.ClOrdId);
+                        Console.WriteLine("Rejection for symbol on cancel " + d.Symbol + " with reason " + d.OrdRejReason);
+                    }
+                    else if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
+                    {
+                        TakeActionFailure(d.ClOrdId);
+                        Console.WriteLine("Invalid order status for symbol on cancel " + d.Symbol + " with reason " + d.OrdRejReason);
+                    }
+                }
+            }
+        }
+
+        private void NewOrderResult(Task<BitmexApiResult<OrderDto>> task)
+        {
+            if (task.Exception != null)
+            {
+                Console.WriteLine((task.Exception.InnerException ?? task.Exception).Message);
+            }
+            else
+            {
+                var d = task.Result.Result;
+
+                if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
+                {
+                    Console.WriteLine("Invalid order status on new order");
+                    TakeActionFailure(d.ClOrdId);
+                }
+                else
+                {
+                    TakeActionSuccess(d.ClOrdId, d.OrdStatus);
+                }
+            }
+        }
+
+        private void AmendOrderResult(Task<BitmexApiResult<OrderDto>> task)
+        {
+            if (task.Exception != null)
+            {
+                Console.WriteLine((task.Exception.InnerException ?? task.Exception).Message);
+            }
+            else
+            {
+                var d = task.Result.Result;
+                if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
+                {
+                    Console.WriteLine("Invalid order status on amend order");
+                    TakeActionFailure(d.ClOrdId);
+                }
+                else if (d.OrdStatus == "Rejected")
+                {
+                    TakeActionFailure(d.ClOrdId);
+                    Console.WriteLine("Order rejected on amend for symbol " + d.Symbol + " with reason " + d.OrdRejReason);
+                }
+                else
+                {
+                    TakeActionSuccess(d.ClOrdId, d.OrdStatus);
+                }
+            }
+        }
+        
+        private void OnOrderMessage(BitmexSocketDataMessage<IEnumerable<OrderDto>> response)
+        {
+            if (response.Action == BitmexActions.Partial)
+            {
+                lock(oms_cache)
+                {
+                    oms_cache.Clear();
+                    oms_pending_cache.Clear();
+                    oms_cancel_cache.Clear();
+                    oms_amend_cache.Clear();
+                }
+            }
+
+            queue.Add(response);
+        }
+        private void OnStart()
+        {
+            foreach (var d in queue.GetConsumingEnumerable(CancellationToken.None))
+            {
+                OnOrderMessage(d);
+
+                foreach(var o in d.Data)
+                {
+                    clientNotificationQ.Add(o);
+                }
+            }
+        }
+
+        private void OnClientNotification()
+        {
+            foreach (var d in clientNotificationQ.GetConsumingEnumerable(CancellationToken.None))
+            {
+                if (orderHandler != null)
+                {
+                    orderHandler(d);
+                }
+            }
+        }
+        #endregion
     }
 }

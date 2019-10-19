@@ -1,9 +1,10 @@
-﻿using EmbeddedService;
-using System;
+﻿using Bitmex.NET.Dtos;
+using Bitmex.NET.Dtos.Socket;
+using EmbeddedService;
+using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using BitMex;
-using Bitmex.Client.Websocket.Responses.Books;
+using Exchange;
 
 namespace MDS
 {
@@ -12,12 +13,13 @@ namespace MDS
         ConcurrentDictionary<string, OrderBook> booksBySymbol = new ConcurrentDictionary<string, OrderBook>();
         private List<string> symbols = new List<string>();
 
+        public ServiceType Service { get { return ServiceType.MDS; } }
         public void Register(List<string> s)
         {
             symbols.AddRange(s);
         }
         
-        public double GetBestBid(string symbol)
+        public decimal GetBestBid(string symbol)
         {
             if (booksBySymbol.ContainsKey(symbol))
                 return booksBySymbol[symbol].Bids.Expensive;
@@ -25,7 +27,7 @@ namespace MDS
                 return -1;
         }
 
-        public double GetBestAsk(string symbol)
+        public decimal GetBestAsk(string symbol)
         {
             if (booksBySymbol.ContainsKey(symbol))
                 return booksBySymbol[symbol].Asks.Cheapest;
@@ -33,26 +35,26 @@ namespace MDS
                 return -1;
         }
 
-        public void Start()
+        public bool Start()
         {
-            var svc = (BitMexService)Locator.Instance.GetService("BitMexService");
+            var svc = (ExchangeService)Locator.Instance.GetService(ServiceType.EXCHANGE);
             svc.Register(symbols);
             svc.SubscribeMarketData(new OnBookChanged(OnMarketData));
+            return true;
         }
 
-        private void OnMarketData(BookResponse msg)
+        private void OnMarketData(BitmexSocketDataMessage<IEnumerable<OrderBookDto>> msg)
         {
-            if (msg.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Partial || msg.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Insert)
+            if (msg.Action == BitmexActions.Partial || msg.Action == BitmexActions.Insert)
             {
-                if (msg.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Partial)
+                if (msg.Action == BitmexActions.Partial)
                 {
-                    booksBySymbol.Remove(msg.Data[0].Symbol, out OrderBook destroy);
+                    foreach (var book in msg.Data)
+                        booksBySymbol.Remove(book.Symbol, out OrderBook destroy);
                 }
 
-                for(int ii=0; ii < msg.Data.Length; ii++)
+                foreach (var d in msg.Data)
                 {
-                    var d = msg.Data[ii];
-
                     if (!booksBySymbol.ContainsKey(d.Symbol))
                     {
                         booksBySymbol[d.Symbol] = new OrderBook();
@@ -60,56 +62,51 @@ namespace MDS
 
                     var book = booksBySymbol[d.Symbol];
 
-                    if (d.Price.HasValue && d.Size.HasValue)
+                    if (d.Price != 0 && d.Size != 0)
                     {
-                        if (d.Side == Bitmex.Client.Websocket.Responses.BitmexSide.Buy)
+                        if (d.Side == "Buy")
                         {
-
-                            book.Bids.Add(d.Id, d.Price.Value, d.Size.Value);
+                            book.Bids.Add(d.Id, d.Price, d.Size);
                         }
-                        else if (d.Side == Bitmex.Client.Websocket.Responses.BitmexSide.Sell)
+                        else if (d.Side == "Sell")
                         {
-                            book.Asks.Add(d.Id, d.Price.Value, d.Size.Value);
+                            book.Asks.Add(d.Id, d.Price, d.Size);
                         }
                     }
                 }
             }
-            else if (msg.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Delete)
+            else if (msg.Action == BitmexActions.Delete)
             {
-                for (int ii = 0; ii < msg.Data.Length; ii++)
+                foreach (var d in msg.Data)
                 {
-                    var d = msg.Data[ii];
-
                     var book = booksBySymbol[d.Symbol];
 
-                    if (d.Side == Bitmex.Client.Websocket.Responses.BitmexSide.Buy)
+                    if (d.Side == "Buy")
                     {
 
                         book.Bids.Delete(d.Id);
                     }
-                    else if (d.Side == Bitmex.Client.Websocket.Responses.BitmexSide.Sell)
+                    else if (d.Side == "Sell")
                     {
                         book.Asks.Delete(d.Id);
                     }                    
                 }
             }
-            else if (msg.Action == Bitmex.Client.Websocket.Responses.BitmexAction.Update)
+            else if (msg.Action == BitmexActions.Update)
             {
-                for (int ii = 0; ii < msg.Data.Length; ii++)
+                foreach (var d in msg.Data)
                 {
-                    var d = msg.Data[ii];
-
                     var book = booksBySymbol[d.Symbol];
 
-                    if (d.Size.HasValue)
+                    if (d.Size != 0)
                     {
-                        if (d.Side == Bitmex.Client.Websocket.Responses.BitmexSide.Buy)
+                        if (d.Side == "Buy")
                         {
-                            book.Bids.Update(d.Id, d.Size.Value);
+                            book.Bids.Update(d.Id, d.Size);
                         }
-                        else if (d.Side == Bitmex.Client.Websocket.Responses.BitmexSide.Sell)
+                        else if (d.Side == "Sell")
                         {
-                            book.Asks.Update(d.Id, d.Size.Value);
+                            book.Asks.Update(d.Id, d.Size);
                         }
                     }
                 }
