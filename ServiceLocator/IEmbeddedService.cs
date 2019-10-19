@@ -9,7 +9,7 @@ namespace EmbeddedService
     public interface IEmbeddedService
     {
         public ServiceType Service { get; }
-        bool Start();
+        WaitHandle Start();
         bool Stop();
     }
 }

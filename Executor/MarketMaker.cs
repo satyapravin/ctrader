@@ -6,11 +6,13 @@ using OMS;
 using MDS;
 using PMS;
 using EmbeddedService;
+using Executor.Logging;
 
 namespace Executor
 {
     public class MarketMaker
     {
+        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
         public string Symbol { get { return prop.Symbol(); } }
         private InstrProp prop;
         private volatile bool breakLoop = false;
@@ -26,6 +28,7 @@ namespace Executor
         public void Start()
         {
             var thread = new Thread(new ThreadStart(OnStart));
+            thread.Name = "MM-" + Symbol;
             thread.IsBackground = true;
             thread.Start();
         }
@@ -42,95 +45,102 @@ namespace Executor
 
         private void OnStart()
         {
-            var oSvc = (OrderMgmtService)Locator.Instance.GetService(ServiceType.OMS);
-            var mSvc = (MarketDataService)Locator.Instance.GetService(ServiceType.MDS);
-            var pSvc = (PositionService)Locator.Instance.GetService(ServiceType.PMS);
-
-            while(!breakLoop)
+            try
             {
-                decimal bidPrice = -1;
-                decimal askPrice = -1;
-                bool chase = true;
-                decimal pval = 0;
-                decimal avgp = 0;
+                var oSvc = (OrderMgmtService)Locator.Instance.GetService(ServiceType.OMS);
+                var mSvc = (MarketDataService)Locator.Instance.GetService(ServiceType.MDS);
+                var pSvc = (PositionService)Locator.Instance.GetService(ServiceType.PMS);
 
-                lock(this)
+                while (!breakLoop)
                 {
-                    bidPrice = mSvc.GetBestBid(Symbol); 
-                    askPrice = mSvc.GetBestAsk(Symbol);
-                    chase = chaseM;
-                    pval = positionValue;
-                    avgp = targetPrice;
-                }
+                    decimal bidPrice = -1;
+                    decimal askPrice = -1;
+                    bool chase = true;
+                    decimal pval = 0;
+                    decimal avgp = 0;
 
-                if (bidPrice > 0 && askPrice > 0)
-                {
-                    decimal currentQty = pSvc.GetQuantity(Symbol);
-                    var posval = prop.GetPositionValue(currentQty, bidPrice, askPrice);
-                    var delta = positionValue - posval;
-                    var deltaQ = prop.GetQuantity(delta, bidPrice, askPrice);
-                    var liveReq = oSvc.GetLiveOrderForSymbol(Symbol);
-                    var pendingReq = oSvc.GetPendingOrderForSymbol(Symbol);
-
-                    if (pendingReq == null)
+                    lock (this)
                     {
-                        if (deltaQ > 0)
+                        bidPrice = mSvc.GetBestBid(Symbol);
+                        askPrice = mSvc.GetBestAsk(Symbol);
+                        chase = chaseM;
+                        pval = positionValue;
+                        avgp = targetPrice;
+                    }
+
+                    if (bidPrice > 0 && askPrice > 0)
+                    {
+                        decimal currentQty = pSvc.GetQuantity(Symbol);
+                        var posval = prop.GetPositionValue(currentQty, bidPrice, askPrice);
+                        var delta = positionValue - posval;
+                        var deltaQ = prop.GetQuantity(delta, bidPrice, askPrice);
+                        var liveReq = oSvc.GetLiveOrderForSymbol(Symbol);
+                        var pendingReq = oSvc.GetPendingOrderForSymbol(Symbol);
+
+                        if (pendingReq == null)
                         {
-                            if (liveReq == null)
+                            if (deltaQ > 0)
                             {
-                                if (chase)
+                                if (liveReq == null)
                                 {
-                                    liveReq = oSvc.NewBuyOrderPost(Symbol, deltaQ, bidPrice);
+                                    if (chase)
+                                    {
+                                        liveReq = oSvc.NewBuyOrderPost(Symbol, deltaQ, bidPrice);
+                                    }
+                                    else
+                                    {
+                                        liveReq = oSvc.NewBuyOrderMkt(Symbol, deltaQ);
+                                    }
+
+                                    liveReq.Send();
                                 }
                                 else
                                 {
-                                    liveReq = oSvc.NewBuyOrderMkt(Symbol, deltaQ);
+                                    liveReq.Cancel();
                                 }
-
-                                liveReq.Send();
                             }
-                            else
+                            else if (deltaQ < 0)
                             {
-                                liveReq.Cancel();
-                            }
-                        }
-                        else if (deltaQ < 0)
-                        {
-                            if (liveReq == null)
-                            {
-                                if (chase)
+                                if (liveReq == null)
                                 {
-                                    liveReq = oSvc.NewSellOrderPost(Symbol, -deltaQ, askPrice);
+                                    if (chase)
+                                    {
+                                        liveReq = oSvc.NewSellOrderPost(Symbol, -deltaQ, askPrice);
+                                    }
+                                    else
+                                    {
+                                        liveReq = oSvc.NewSellOrderMkt(Symbol, -deltaQ);
+                                    }
+                                    liveReq.Send();
                                 }
                                 else
                                 {
-                                    liveReq = oSvc.NewSellOrderMkt(Symbol, -deltaQ);
+                                    liveReq.Cancel();
                                 }
-                                liveReq.Send();
                             }
                             else
                             {
-                                liveReq.Cancel();
-                            }
-                        }
-                        else
-                        {
-                            if (liveReq != null)
-                            {
-                                if (chase)
+                                if (liveReq != null)
                                 {
-                                    if (liveReq.Side == MyOrder.OrderSide.BUY && bidPrice != liveReq.Price)
-                                        liveReq.Amend(bidPrice);
-                                    else if (liveReq.Side == MyOrder.OrderSide.SELL && askPrice != liveReq.Price)
-                                        liveReq.Amend(askPrice);
+                                    if (chase)
+                                    {
+                                        if (liveReq.Side == MyOrder.OrderSide.BUY && bidPrice != liveReq.Price)
+                                            liveReq.Amend(bidPrice);
+                                        else if (liveReq.Side == MyOrder.OrderSide.SELL && askPrice != liveReq.Price)
+                                            liveReq.Amend(askPrice);
+                                    }
                                 }
-                            }
 
+                            }
                         }
                     }
-                }
 
-                Thread.Sleep(2500);
+                    Thread.Sleep(2500);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.FatalException(Symbol, e);
             }
         }
 

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System;
 using ExchangeService.Logging;
+using System.Threading;
 
 namespace ExchangeService
 {
@@ -19,6 +20,7 @@ namespace ExchangeService
 
     public class Exchange : IEmbeddedService
     {
+        System.Threading.EventWaitHandle waitHandle = new System.Threading.AutoResetEvent(false);
         private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
         private IBitmexApiService bitmexREST = null;
         private IBitmexAuthorization _bitmexAuthorization;
@@ -77,7 +79,7 @@ namespace ExchangeService
                 marginHandler += handler;
         }
 
-        public bool Start()
+        public WaitHandle Start()
         {
             var env = BitmexEnvironment.Test;
 
@@ -92,7 +94,7 @@ namespace ExchangeService
             if (!_bitmexApiSocketService.Connect())
             {
                 Log.Error("Failed to connect to bimex websocket");
-                return false;
+                throw new ApplicationException("Failed to connect to bitmex websocket");
             }
 
             _bitmexApiSocketService.Subscribe(BitmetSocketSubscriptions.CreateOrderSubsription(message =>
@@ -122,7 +124,8 @@ namespace ExchangeService
             }));
 
             bitmexREST = BitmexApiService.CreateDefaultApi(_bitmexAuthorization);
-            return true;
+            waitHandle.Set();
+            return waitHandle;
         }
 
         public Task<BitmexApiResult<OrderDto>> Post(OrderPOSTRequestParams posOrderParams)

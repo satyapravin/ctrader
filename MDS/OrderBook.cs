@@ -72,11 +72,15 @@ namespace MDS
 
         public void Update(long msgId, decimal quantity)
         {
-            levelById[msgId].Quantity = quantity;
+            if (levelById.ContainsKey(msgId))
+                levelById[msgId].Quantity = quantity;
         }
 
         public void Delete(long msgId)
         {
+            if (!levelById.ContainsKey(msgId))
+                return;
+
             var lvl = levelById[msgId];
             levelById.Remove(msgId);
             levelByPrice.Remove(lvl.Price);

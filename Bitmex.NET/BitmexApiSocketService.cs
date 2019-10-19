@@ -4,6 +4,7 @@ using Bitmex.NET.Models.Socket;
 using Bitmex.NET.Models.Socket.Events;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,6 +42,8 @@ namespace Bitmex.NET
         private readonly ISignatureProvider _signatureProvider;
         private readonly IBitmexApiSocketProxy _bitmexApiSocketProxy;
         private readonly IDictionary<string, IList<BitmexApiSubscriptionInfo>> _actions;
+        private readonly IDictionary<string, Thread> _processors;
+        private readonly IDictionary<string, BlockingCollection<DataEventArgs>> _queues;
 
         private bool _isAuthorized;
         public bool IsAuthorized => _bitmexApiSocketProxy.IsAlive && _isAuthorized;
@@ -52,6 +55,8 @@ namespace Bitmex.NET
             _signatureProvider = signatureProvider;
             _bitmexApiSocketProxy = bitmexApiSocketProxy;
             _actions = new Dictionary<string, IList<BitmexApiSubscriptionInfo>>();
+            _processors = new Dictionary<string, Thread>();
+            _queues = new Dictionary<string, BlockingCollection<DataEventArgs>>();
             _bitmexApiSocketProxy.DataReceived += BitmexApiSocketProxyDataReceived;
         }
 
@@ -122,6 +127,12 @@ namespace Bitmex.NET
                 if (!_actions.ContainsKey(subscription.SubscriptionName))
                 {
                     _actions.Add(subscription.SubscriptionName, new List<BitmexApiSubscriptionInfo> { subscription });
+                    var q = new BlockingCollection<DataEventArgs>();
+                    _queues.Add(subscription.SubscriptionName, q);
+                    var processor = new Thread(() => Consume(q, subscription));
+                    _processors.Add(subscription.SubscriptionName, processor);
+                    processor.Start();
+                    
                 }
                 else
                 {
@@ -132,6 +143,24 @@ namespace Bitmex.NET
             {
                 Log.Error($"Failed to subscribe on {subscriptionName} {error} ");
                 throw new BitmexSocketSubscriptionException(error, errorArgs);
+            }
+        }
+
+        public void Consume(BlockingCollection<DataEventArgs> dataItems, BitmexApiSubscriptionInfo subscription)
+        {
+            while (!dataItems.IsCompleted)
+            {
+                DataEventArgs args = null;
+                try
+                {
+                    args = dataItems.Take();
+                }
+                catch (InvalidOperationException) { }
+
+                if (args != null)
+                {
+                    subscription.Execute(args.Data, args.Action);
+                }
             }
         }
 
@@ -174,6 +203,9 @@ namespace Bitmex.NET
                     {
                         if (_actions[subscription.SubscriptionName].Contains(subscription))
                         {
+                            _queues[subscription.SubscriptionName].CompleteAdding();
+                            _queues.Remove(subscription.SubscriptionName);
+                            _processors.Remove(subscription.SubscriptionName);
                             _actions[subscription.SubscriptionName].Remove(subscription);
                         }
                     }
@@ -237,10 +269,11 @@ namespace Bitmex.NET
         {
             if (_actions.ContainsKey(args.TableName))
             {
+                int ii = _actions[args.TableName].Count;
                 foreach (var subscription in _actions[args.TableName])
                 {
-                    var data = args.Data;
-                    Task.Factory.StartNew(() => subscription.Execute(data, args.Action));
+                    if (_queues.ContainsKey(subscription.SubscriptionName))
+                        _queues[subscription.SubscriptionName].Add(args);
                 }
             }
         }

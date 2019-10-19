@@ -27,31 +27,31 @@ namespace OMS
             }
             else
             {
-                Log.Error($"Sending invalid order {Symbol}, {this.Request}, {this.Status}");
+                Log.Error($"Wrong new on order {Symbol}, {this.Request}, {this.Status}");
             }
         }
 
         public void Cancel()
         {
-            if (this.Request == RequestType.CANCEL && Status == OrderStateIdentifier.UNCONFIRMED)
+            if (Status == OrderStateIdentifier.CONFIRMED && this.Request != RequestType.CANCEL)
             {
                 oms_server.CancelOrder(this);
             }
             else
             {
-                Log.Error($"Sending invalid order {Symbol}, {this.Request}, {this.Status}");
+                Log.Error($"Wrong cancel on order {Symbol}, {this.Request}, {this.Status}");
             }
         }
 
         public void Amend(decimal price)
         {
-            if (this.Request == RequestType.AMEND && Status == OrderStateIdentifier.UNCONFIRMED)
+            if (Status == OrderStateIdentifier.CONFIRMED)
             {
                 oms_server.AmendOrder(this, price);
             }
             else
             {
-                Log.Error($"Sending invalid order {Symbol}, {this.Request}, {this.Status}");
+                Log.Error($"Wrong amend on order {Symbol}, {this.Request}, {this.Status}");
             }
         }
  

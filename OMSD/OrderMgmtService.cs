@@ -108,6 +108,8 @@ namespace OMS
                         break;
                     }
                 }
+
+                oms_cancel_cache.Add(cancel.ClientOrderID, cancel);
             }
 
             if (!exists)
@@ -150,12 +152,14 @@ namespace OMS
 
             return null;
         }
-        public EventWaitHandle Start()
+        public WaitHandle Start()
         {
             var thread = new Thread(new ThreadStart(OnClientNotification));
+            thread.Name = "OMSThreadClient";
             thread.IsBackground = true;
             thread.Start();
             thread = new Thread(new ThreadStart(OnStart));
+            thread.Name = "OMSThreadServer";
             thread.IsBackground = true;
             thread.Start();
 
@@ -291,6 +295,10 @@ namespace OMS
                     {
                         oms_cache[order.Symbol] = order;
                     }
+                    else
+                    {
+                        Log.Error($"Not processing new order because ordStatus is {ordStatus}");
+                    }
                 }
                 else if (oms_cancel_cache.ContainsKey(cliOrdID))
                 {
@@ -306,6 +314,10 @@ namespace OMS
                             else
                                 Log.Error ($"Canceled order not a live order for {order.Symbol}");
                         }
+                        else
+                        {
+                            Log.Error($"Not processing cancel order because ordStatus is {ordStatus}");
+                        }
                     }
                 }
                 else if (oms_amend_cache.ContainsKey(cliOrdID))
@@ -319,6 +331,10 @@ namespace OMS
                         if (ordStatus != "Canceled" && ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")
                         {
                             oms_cache[order.Symbol] = order;
+                        }
+                        else
+                        {
+                            Log.Error($"Not processing amend order because ordStatus is {ordStatus}");
                         }
                     }
                 }
@@ -358,7 +374,7 @@ namespace OMS
 
                 if (order == null)
                 {
-                    Log.Error($"Order {cliOrdID} not found in cache for success");
+                    Log.Error($"Order {cliOrdID} not found in cache for failure");
                 }
                 else
                 {
@@ -390,6 +406,10 @@ namespace OMS
                     {
                         TakeActionFailure(d.ClOrdId);
                         Log.Error($"Invalid order status for {d.Symbol} on cancel with reason {d.OrdRejReason}");
+                    }
+                    else
+                    {
+                        Log.Warn($"Delete order request with unknown ordStatus {d.OrdStatus}");
                     }
                 }
             }
@@ -457,7 +477,6 @@ namespace OMS
 
                 waitHandle.Set();
             }
-
             queue.Add(response);
         }
         private void OnStart()

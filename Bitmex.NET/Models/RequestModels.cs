@@ -643,7 +643,7 @@ namespace Bitmex.NET.Models
         /// Optional filter for cancellation. Use to only cancel some orders, e.g. {"side": "Buy"}.
         /// </summary>
         [DisplayName("filter")]
-        public string Filter { get; set; }
+        public new string Filter { get; set; }
         /// <summary>        
         /// Optional cancellation annotation.e.g. 'Spread Exceeded'
         /// </summary>

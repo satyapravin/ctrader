@@ -22,9 +22,10 @@ namespace CTrader
         private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
         private static void InitLogging()
         {
+            string filename = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "log4net.xml");
             XmlConfigurator.Configure(
                 LogManager.GetRepository(Assembly.GetAssembly(typeof(LogManager))),
-                new FileInfo("log4net.config"));
+                new FileInfo(filename));
         }
 
         public static void processOMSMessage(OrderDto o)
@@ -51,14 +52,14 @@ namespace CTrader
         public static void Main()
         {
             InitLogging();
-            Log.Info("Starting CTrader");            
+            Log.Info("Starting CTrader");
             Exchange bitmexSvc = new Exchange(System.Configuration.ConfigurationManager.AppSettings["ApiKey"],
                                               System.Configuration.ConfigurationManager.AppSettings["ApiSecret"],
                                               bool.Parse(System.Configuration.ConfigurationManager.AppSettings["IsLive"]));
 
             MarketDataService mdsSvc = new MarketDataService();
             PositionService pSvc = new PositionService();
-            OrderMgmtService omsSvc =  new OrderMgmtService();
+            OrderMgmtService omsSvc = new OrderMgmtService();
             MarginService mgsSvc = new MarginService();
 
             Locator.Instance.Register(bitmexSvc);
@@ -78,11 +79,23 @@ namespace CTrader
 
             omsSvc.RegisterHandler(InstrXCFUSD.Symbol(), new OMS.OnOrder(processOMSMessage));
             mdsSvc.Register(symbols);
-            mdsSvc.Start();
-            pSvc.Start();
-            mgsSvc.Start();
-            omsSvc.Start();
-            bitmexSvc.Start();
+            var w1 = mdsSvc.Start();
+            var w2 = pSvc.Start();
+            var w3 = mgsSvc.Start();
+            var w4 = omsSvc.Start();
+            var w5 = bitmexSvc.Start();
+
+            w5.WaitOne();
+            Log.Info($"{bitmexSvc.Service} started");
+            w1.WaitOne();
+            Log.Info($"{mdsSvc.Service} started");
+            w2.WaitOne();
+            Log.Info($"{pSvc.Service} started");
+            w3.WaitOne();
+            Log.Info($"{mgsSvc.Service} started");
+            w4.WaitOne();
+            Log.Info($"{omsSvc.Service} started");
+
             Executor.MarketMaker xcfmaker = new Executor.MarketMaker(InstrXCFUSD);
             Executor.MarketMaker btcmaker = new Executor.MarketMaker(InstrXBTUSD);
             Executor.MarketMaker ethmaker = new Executor.MarketMaker(InstrETHUSD);
@@ -117,7 +130,7 @@ namespace CTrader
                     if (grossposval == 0)
                         targetposval = amount / 3.0m;
                     else if (xcfposval != 0)
-                        targetposval = Math.Abs(xcfposval) / 3.0m;
+                        targetposval = Math.Abs(xcfposval);
 
                     xcfmaker.FillTarget(-targetposval, xcfAsk, true);
                     var currentQty = pSvc.GetQuantity(InstrXCFUSD.Symbol());

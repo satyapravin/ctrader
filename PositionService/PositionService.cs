@@ -3,19 +3,21 @@ using Bitmex.NET.Dtos;
 using Bitmex.NET.Dtos.Socket;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace PMS
 {
     public class PositionService : IEmbeddedService
     {
+        private EventWaitHandle waitHandle = new ManualResetEvent(false);
         private ConcurrentDictionary<string, decimal> positions = new ConcurrentDictionary<string, decimal>();
 
         public ServiceType Service { get { return ServiceType.PMS; } }
-        public bool Start()
+        public WaitHandle Start()
         {
             ExchangeService.Exchange svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
             svc.SubscribePositions(new ExchangeService.OnPosition(OnPositionUpdate));
-            return true;
+            return waitHandle;
         }
 
         private void OnPositionUpdate(BitmexSocketDataMessage<IEnumerable<PositionDto>> response)
@@ -35,6 +37,9 @@ namespace PMS
                 foreach(var d in response.Data)
                     positions[d.Symbol] = 0;
             }
+
+            if (response.Action == BitmexActions.Partial)
+                waitHandle.Set();
         }
 
         public decimal GetQuantity(string symbol)

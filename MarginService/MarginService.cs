@@ -10,17 +10,18 @@ namespace MGS
 {
     public class MarginService : IEmbeddedService
     {
+        private EventWaitHandle waitHandle = new ManualResetEvent(false);
         private decimal availableMargin = 0;
         private decimal unrealizedPnl = 0;
         private decimal amount = 0;
 
         public ServiceType Service { get { return ServiceType.MGS; } }
 
-        public bool Start()
+        public WaitHandle Start()
         {
             ExchangeService.Exchange svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
             svc.SubscribeMargin(new ExchangeService.OnMargin(new ExchangeService.OnMargin(OnMarginUpdate)));
-            return true;
+            return waitHandle;
         }
 
         public decimal Amount
@@ -33,7 +34,7 @@ namespace MGS
         }
         public decimal UnrealisedPnL
         {
-            get { lock (this) { return this.UnrealisedPnL; } }
+            get { lock (this) { return this.unrealizedPnl; } }
         }
 
         private void OnMarginUpdate(BitmexSocketDataMessage<IEnumerable<MarginDto>> response)
@@ -72,8 +73,10 @@ namespace MGS
                         availableMargin = avlblemgn;
                         unrealizedPnl = upl;
                     }
-
                 }
+
+                if (response.Action == BitmexActions.Partial)
+                    waitHandle.Set();
             }
             else if (response.Action == BitmexActions.Delete)
             {

@@ -36,8 +36,9 @@ namespace MDS
                 return -1;
         }
 
-        public System.Threading.EventWaitHandle Start()
+        public System.Threading.WaitHandle Start()
         {
+
             var svc = (ExchangeService.Exchange)Locator.Instance.GetService(ServiceType.EXCHANGE);
             svc.Register(symbols);
             svc.SubscribeMarketData(new OnBookChanged(OnMarketData));
