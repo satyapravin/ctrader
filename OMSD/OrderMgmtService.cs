@@ -65,10 +65,19 @@ namespace OMS
                 {
                     oms_amend_cache.Remove(amend.ClientOrderID);
                     
-                    if(oms_cache.ContainsKey(amend.ChildOrder.ClientOrderID))
+                    if(oms_cache.ContainsKey(amend.ChildOrder.Symbol))
                     {
-                        oms_cache.Remove(amend.ChildOrder.ClientOrderID);
-                        Log.Info($"{amend.ChildOrder.ClientOrderID} removed from main cache due to InvalidOrdStatus");
+                        var cached_order = oms_cache[amend.Symbol];
+
+                        if (cached_order.ClientOrderID == amend.ChildOrder.ClientOrderID)
+                        {
+                            oms_cache.Remove(amend.Symbol);
+                            Log.Info($"{amend.ChildOrder.ClientOrderID} removed from main cache due to InvalidOrdStatus");
+                        }
+                        else
+                        {
+                            Log.Info($"{amend.ChildOrder.ClientOrderID} does not match main cache {cached_order.ClientOrderID} on InvalidOrdStatus");
+                        }
                     }
                 }
             }
