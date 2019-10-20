@@ -68,6 +68,7 @@ namespace OMS
                     if(oms_cache.ContainsKey(amend.ChildOrder.ClientOrderID))
                     {
                         oms_cache.Remove(amend.ChildOrder.ClientOrderID);
+                        Log.Info($"{amend.ChildOrder.ClientOrderID} removed from main cache due to InvalidOrdStatus");
                     }
                 }
             }
@@ -319,7 +320,7 @@ namespace OMS
             {
                 MyOrder order = null;
 
-                if (oms_processed_cache.ContainsKey(o.ClOrdId))
+                if (oms_processed_cache.ContainsKey(o.ClOrdId) && o.OrdStatus != "Filled")
                 {
                     Log.Info($"{o.ClOrdId} already processed");
                     oms_processed_cache.Remove(o.ClOrdId);
@@ -331,10 +332,15 @@ namespace OMS
                     order = oms_pending_cache[o.ClOrdId];
                     oms_pending_cache.Remove(o.ClOrdId);
                     Log.Info($"{o.ClOrdId} removed from pending cache");
-                    if (o.OrdStatus != "Canceled" && o.OrdStatus != "DoneForDay" && o.OrdStatus != "Expired" && o.OrdStatus != "Rejected")                        
+                    if (o.OrdStatus != "Canceled" && o.OrdStatus != "DoneForDay" && o.OrdStatus != "Expired" && o.OrdStatus != "Rejected" && o.OrdStatus != "Filled")                        
                     {
                         Log.Info($"{o.ClOrdId} processed now into main cache");
                         oms_cache[order.Symbol] = order;
+                    }
+                    else if (o.OrdStatus == "Filled")
+                    {
+                        oms_cache.Remove(order.Symbol);
+                        Log.Info($"{o.ClOrdId} with {o.OrdStatus} removed from main cache");
                     }
                     else
                     {
@@ -358,7 +364,9 @@ namespace OMS
                                 Log.Info($"{o.ClOrdId} removed from main cache");
                             }
                             else
+                            {
                                 Log.Error($"Canceled order not a live order for {order.Symbol}");
+                            }
                         }
                         else
                         {
@@ -379,10 +387,16 @@ namespace OMS
 
                     if (oms_cache.ContainsKey(child.Symbol))
                     {
-                        if (o.OrdStatus != "Canceled" && o.OrdStatus != "DoneForDay" && o.OrdStatus != "Expired" && o.OrdStatus != "Rejected")
+                        if (o.OrdStatus != "Canceled" && o.OrdStatus != "DoneForDay" && o.OrdStatus != "Expired" && o.OrdStatus != "Rejected" && o.OrdStatus != "Filled")
                         {
                             oms_cache[order.Symbol] = order;
-                            Log.Info($"updated amended order to main cache with {order.ClientOrderID}");
+                            order.Execution = o;
+                            Log.Info($"updated amended order to main cache with {order.ClientOrderID} and {o.OrdStatus}");
+                        }
+                        else if (o.OrdStatus == "Filled")
+                        {
+                            oms_cache.Remove(order.Symbol);
+                            Log.Info($"{o.ClOrdId} with {o.OrdStatus} removed from main cache after amendment");
                         }
                         else
                         {
