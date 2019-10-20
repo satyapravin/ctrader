@@ -332,7 +332,17 @@ namespace OMS
                 if (oms_processed_cache.ContainsKey(o.ClOrdId) && o.OrdStatus != "Filled")
                 {
                     Log.Info($"{o.ClOrdId} already processed");
+                    order = oms_processed_cache[o.ClOrdId];
                     oms_processed_cache.Remove(o.ClOrdId);
+
+                    if (o.OrdStatus == "Canceled" || o.OrdStatus == "Expired" || o.OrdStatus == "Rejected" || o.OrdStatus == "DoneForDay")
+                    {
+                        if (oms_cache.ContainsKey(order.Symbol) && oms_cache[order.Symbol].ClientOrderID == o.ClOrdId)
+                        {
+                            oms_cache.Remove(order.Symbol);
+                            Log.Info($"Removed cancel order from main cache; it was already processed though?!");
+                        }
+                    }
                     return;
                 }
 
@@ -449,7 +459,10 @@ namespace OMS
                 }
                 else
                 {
-                    oms_processed_cache.Add(order.ClientOrderID, order);
+                    if (!oms_processed_cache.ContainsKey(order.ClientOrderID))
+                    {
+                        oms_processed_cache.Add(order.ClientOrderID, order);
+                    }
                     order.Status = OrderStateIdentifier.CONFIRMED;
                 }
             }
@@ -457,7 +470,6 @@ namespace OMS
 
         private void TakeActionFailure(OrderDto o)
         {
-            bool process = false;
             Log.Info($"{o.Symbol} failed with {o.OrdStatus} and {o.ClOrdId}");
             lock (oms_cache)
             {
@@ -495,8 +507,10 @@ namespace OMS
                 }
                 else
                 {
-                    if (process)
+                    if (!oms_processed_cache.ContainsKey(order.ClientOrderID))
+                    {
                         oms_processed_cache.Add(order.ClientOrderID, order);
+                    }
                     order.Status = OrderStateIdentifier.CONFIRMED;
                 }
             }

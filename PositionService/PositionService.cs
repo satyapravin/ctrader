@@ -4,11 +4,13 @@ using Bitmex.NET.Dtos.Socket;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading;
+using PMS.Logging;
 
 namespace PMS
 {
     public class PositionService : IEmbeddedService
     {
+        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
         private EventWaitHandle waitHandle = new ManualResetEvent(false);
         private ConcurrentDictionary<string, decimal> positions = new ConcurrentDictionary<string, decimal>();
 
@@ -28,14 +30,18 @@ namespace PMS
             {
                 foreach(var d in response.Data)
                 {
+                    Log.Info($"{d.Symbol} has action {response.Action} with position {d.CurrentQty}");
                     decimal qty = d.CurrentQty;
                     positions[d.Symbol] = qty;
                 }
             }
             else if (response.Action == BitmexActions.Delete)
             {
-                foreach(var d in response.Data)
+                foreach (var d in response.Data)
+                {
+                    Log.Info($"{d.Symbol} has action {response.Action} with position {d.CurrentQty}");
                     positions[d.Symbol] = 0;
+                }
             }
 
             if (response.Action == BitmexActions.Partial)
