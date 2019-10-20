@@ -18,7 +18,7 @@
     </layout>
   </appender>
   <root>
-    <level value="ALL" />
+    <level value="INFO" />
     <appender-ref ref="MyRollingFileAppender" />
     <appender-ref ref="ConsoleAppender" />
   </root>

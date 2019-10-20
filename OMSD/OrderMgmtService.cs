@@ -27,6 +27,7 @@ namespace OMS
         private Dictionary<string, MyOrder> oms_pending_cache = new Dictionary<string, MyOrder>();
         private Dictionary<string, MyOrder> oms_cancel_cache = new Dictionary<string, MyOrder>();
         private Dictionary<string, MyOrder> oms_amend_cache = new Dictionary<string, MyOrder>();
+        private Dictionary<string, MyOrder> oms_processed_cache = new Dictionary<string, MyOrder>();
         #endregion
 
         #region internal methods
@@ -49,10 +50,27 @@ namespace OMS
 
             lock (oms_cache)
             {
-                oms_pending_cache[req.ClientOrderID] = req;
+                Log.Info($"{amend.Symbol} in process for amendment with {amend.ClientOrderID} and child {req.ClientOrderID}");
+                oms_amend_cache[amend.ClientOrderID] = amend;
             }
 
-            await svc.Put(param).ContinueWith(AmendOrderResult);
+            try
+            {
+                await svc.Put(param).ContinueWith(AmendOrderResult, TaskContinuationOptions.NotOnFaulted);
+            }
+            catch(Exception e)
+            {
+                Log.ErrorException("amend resulted in exception", e);
+                lock (oms_cache)
+                {
+                    oms_amend_cache.Remove(amend.ClientOrderID);
+                    
+                    if(oms_cache.ContainsKey(amend.ChildOrder.ClientOrderID))
+                    {
+                        oms_cache.Remove(amend.ChildOrder.ClientOrderID);
+                    }
+                }
+            }
         }
 
         internal async void NewOrder(MyOrder req)
@@ -75,10 +93,22 @@ namespace OMS
 
                 lock (oms_cache)
                 {
+                    Log.Info($"{req.Symbol} in process for submission with {req.ClientOrderID}");
                     oms_pending_cache[req.ClientOrderID] = req;
                 }
 
-                await svc.Post(param).ContinueWith(NewOrderResult);
+                try
+                {
+                    await svc.Post(param).ContinueWith(NewOrderResult, TaskContinuationOptions.NotOnFaulted);
+                }
+                catch(Exception e)
+                {
+                    Log.ErrorException("New resulted in exception", e);
+                    lock (oms_cache)
+                    {
+                        oms_pending_cache.Remove(req.ClientOrderID);
+                    }
+                }
             }
         }
         internal async void CancelOrder(MyOrder req)
@@ -96,24 +126,24 @@ namespace OMS
             OrderDELETERequestParams param = new OrderDELETERequestParams();
             param.ClOrdID = req.ClientOrderID;
 
-            bool exists = false;
-
             lock (oms_cache)
             {
-                foreach (var o in oms_pending_cache.Values)
-                {
-                    if (o.Symbol == req.Symbol)
-                    {
-                        exists = true;
-                        break;
-                    }
-                }
-
+                Log.Info($"{cancel.Symbol} in process for cancelation with {cancel.ClientOrderID}");
                 oms_cancel_cache.Add(cancel.ClientOrderID, cancel);
             }
 
-            if (!exists)
-                await svc.Delete(param).ContinueWith(ProcessDeleteResult);
+            try
+            {
+                await svc.Delete(param).ContinueWith(ProcessDeleteResult, TaskContinuationOptions.NotOnFaulted);
+            }
+            catch (Exception e)
+            {
+                Log.ErrorException("Cancel resulted in exception", e);
+                lock (oms_cache)
+                {
+                    oms_cancel_cache.Remove(cancel.ClientOrderID);
+                }
+            }
         }
 
         #endregion
@@ -138,14 +168,27 @@ namespace OMS
         {
             lock (oms_cache)
             {
-                if (oms_cache.ContainsKey(symbol))
+                foreach (var o in oms_pending_cache.Values)
                 {
-                    foreach (var o in oms_pending_cache.Values)
+                    if (o.Symbol == symbol)
                     {
-                        if (o.Symbol == symbol)
-                        {
-                            return o;
-                        }
+                        return o;
+                    }
+                }
+
+                foreach (var o in oms_amend_cache.Values)
+                {
+                    if (o.Symbol == symbol)
+                    {
+                        return o;
+                    }
+                }
+
+                foreach(var o in oms_cancel_cache.Values)
+                {
+                    if (o.Symbol == symbol)
+                    {
+                        return o;
                     }
                 }
             }
@@ -182,7 +225,7 @@ namespace OMS
                 Request = RequestType.NEW,
                 ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
                 Symbol = symbol,
-                Quantity = qty,
+                Quantity = (long)qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
                 Price = 0,
                 Side = MyOrder.OrderSide.BUY,
@@ -197,7 +240,7 @@ namespace OMS
                 Request = RequestType.NEW,
                 ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
                 Symbol = symbol,
-                Quantity = qty,
+                Quantity = (long)qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
                 Price = 0,
                 Side = MyOrder.OrderSide.SELL,
@@ -212,7 +255,7 @@ namespace OMS
                 Request = RequestType.NEW,
                 ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
                 Symbol = symbol,
-                Quantity = qty,
+                Quantity = (long)qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
                 Price = price,
                 Side = MyOrder.OrderSide.BUY,
@@ -227,7 +270,7 @@ namespace OMS
                 Request = RequestType.NEW,
                 ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
                 Symbol = symbol,
-                Quantity = qty,
+                Quantity = (long)qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
                 Price = price,
                 Side = MyOrder.OrderSide.SELL,
@@ -242,7 +285,7 @@ namespace OMS
                 Request = RequestType.NEW,
                 ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
                 Symbol = symbol,
-                Quantity = qty,
+                Quantity = (long)qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
                 Price = price,
                 Side = MyOrder.OrderSide.BUY,
@@ -257,7 +300,7 @@ namespace OMS
                 Request = RequestType.NEW,
                 ClientOrderID = symbol + DateTime.Now.Ticks.ToString(),
                 Symbol = symbol,
-                Quantity = qty,
+                Quantity = (long)qty,
                 Status = OrderStateIdentifier.UNCONFIRMED,
                 Price = price,
                 Side = MyOrder.OrderSide.SELL,
@@ -268,116 +311,169 @@ namespace OMS
         #endregion
 
         #region private methods
-        private void EnCache(MyOrder order, RequestType requestType)
+
+        private void TakeActionSuccess(OrderDto o)
         {
-            lock (oms_cache)
-            {
-                if (requestType == RequestType.NEW)
-                    oms_pending_cache.Add(order.ClientOrderID, order);
-                else if (requestType == RequestType.AMEND)
-                    oms_amend_cache.Add(order.ClientOrderID, order);
-                else if (requestType == RequestType.CANCEL)
-                    oms_cancel_cache.Add(order.ClientOrderID, order);
-            }
-        }
-        private void TakeActionSuccess(string cliOrdID, string ordStatus, string origCliOrdID = null)
-        {
+            Log.Info($"{o.Symbol} successful with {o.OrdStatus} and {o.ClOrdId}");
             lock (oms_cache)
             {
                 MyOrder order = null;
 
-                if (oms_pending_cache.ContainsKey(cliOrdID))
+                if (oms_processed_cache.ContainsKey(o.ClOrdId))
                 {
-                    order = oms_pending_cache[cliOrdID];
-                    oms_pending_cache.Remove(cliOrdID);
+                    Log.Info($"{o.ClOrdId} already processed");
+                    oms_processed_cache.Remove(o.ClOrdId);
+                    return;
+                }
 
-                    if (ordStatus != "Canceled" && ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")                        
+                if (oms_pending_cache.ContainsKey(o.ClOrdId))
+                {
+                    order = oms_pending_cache[o.ClOrdId];
+                    oms_pending_cache.Remove(o.ClOrdId);
+                    Log.Info($"{o.ClOrdId} removed from pending cache");
+                    if (o.OrdStatus != "Canceled" && o.OrdStatus != "DoneForDay" && o.OrdStatus != "Expired" && o.OrdStatus != "Rejected")                        
                     {
+                        Log.Info($"{o.ClOrdId} processed now into main cache");
                         oms_cache[order.Symbol] = order;
                     }
                     else
                     {
-                        Log.Error($"Not processing new order because ordStatus is {ordStatus}");
+                        Log.Error($"Not processing new order because ordStatus is {o.OrdStatus}");
                     }
                 }
-                else if (oms_cancel_cache.ContainsKey(cliOrdID))
+                else if (oms_cancel_cache.ContainsKey(o.ClOrdId))
                 {
-                    order = oms_cancel_cache[cliOrdID];
-                    oms_cancel_cache.Remove(cliOrdID);
-                    var child = order.ChildOrder;
-                    if (child.ClientOrderID == cliOrdID && oms_cache.ContainsKey(order.Symbol))
-                    {
-                        if (ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")
-                        {
-                            if (oms_cache[order.Symbol].ClientOrderID == cliOrdID)
-                                oms_cache.Remove(cliOrdID);
-                            else
-                                Log.Error ($"Canceled order not a live order for {order.Symbol}");
-                        }
-                        else
-                        {
-                            Log.Error($"Not processing cancel order because ordStatus is {ordStatus}");
-                        }
-                    }
-                }
-                else if (oms_amend_cache.ContainsKey(cliOrdID))
-                {
-                    order = oms_amend_cache[cliOrdID];
-                    oms_amend_cache.Remove(cliOrdID);
+                    order = oms_cancel_cache[o.ClOrdId];
+                    oms_cancel_cache.Remove(o.ClOrdId);
+                    Log.Info($"{o.ClOrdId} removed from cancel cache");
                     var child = order.ChildOrder;
 
-                    if (oms_cache.ContainsKey(child.Symbol) && origCliOrdID != null && origCliOrdID == child.ClientOrderID)
+                    if (child.ClientOrderID == o.ClOrdId && oms_cache.ContainsKey(order.Symbol))
                     {
-                        if (ordStatus != "Canceled" && ordStatus != "DoneForDay" && ordStatus != "Expired" && ordStatus != "Rejected")
+                        if (o.OrdStatus != "DoneForDay" && o.OrdStatus != "Expired" && o.OrdStatus != "Rejected")
                         {
-                            oms_cache[order.Symbol] = order;
+                            if (oms_cache[order.Symbol].ClientOrderID == o.ClOrdId)
+                            {
+                                oms_cache.Remove(o.ClOrdId);
+                                Log.Info($"{o.ClOrdId} removed from main cache");
+                            }
+                            else
+                                Log.Error($"Canceled order not a live order for {order.Symbol}");
                         }
                         else
                         {
-                            Log.Error($"Not processing amend order because ordStatus is {ordStatus}");
+                            Log.Error($"Not processing cancel order because ordStatus is {o.OrdStatus}");
                         }
+                    }
+                    else
+                    {
+                        Log.Info($"{child.ClientOrderID} does not match {o.ClOrdId} when processing cancel success");
+                    }
+                }
+                else if (oms_amend_cache.ContainsKey(o.ClOrdId))
+                {
+                    order = oms_amend_cache[o.ClOrdId];
+                    oms_amend_cache.Remove(o.ClOrdId);
+                    Log.Info($"{o.ClOrdId} removed from amend cache");
+                    var child = order.ChildOrder;
+
+                    if (oms_cache.ContainsKey(child.Symbol))
+                    {
+                        if (o.OrdStatus != "Canceled" && o.OrdStatus != "DoneForDay" && o.OrdStatus != "Expired" && o.OrdStatus != "Rejected")
+                        {
+                            oms_cache[order.Symbol] = order;
+                            Log.Info($"updated amended order to main cache with {order.ClientOrderID}");
+                        }
+                        else
+                        {
+                            Log.Error($"Not processing amend order because ordStatus is {o.OrdStatus}");
+                        }
+                    }
+                    else
+                    {
+                        Log.Info($"{child.Symbol} not found in main cache");
+                    }
+                }
+                else if (oms_cache.ContainsKey(o.Symbol) && oms_cache[o.Symbol].ClientOrderID == o.ClOrdId)
+                {
+                    order = oms_cache[o.Symbol];
+
+                    if (o.OrdStatus == "PartiallyFilled")
+                    {
+                        Log.Info($"{order.ClientOrderID} partially filled");
+                        order.Execution = o;
+                    }
+                    else if (o.OrdStatus == "Filled")
+                    {
+                        order.Execution = o;
+                        oms_cache.Remove(o.Symbol);
+                        Log.Info($"{order.ClientOrderID} filled and removed from main cache");
+                    }
+                    else if (o.OrdStatus == "DoneForDay" || o.OrdStatus == "Canceled" || o.OrdStatus == "Rejected" || o.OrdStatus == "Expired")
+                    {
+                        oms_cache.Remove(o.Symbol);
+                        Log.Info($"{order.ClientOrderID} with {o.OrdStatus} removed from main cache");
+                    }
+                    else
+                    {
+                        Log.Error($"Not processing {o.OrdStatus} for order {o.ClOrdId} because it is waiting in orderbook");
                     }
                 }
 
                 if (order == null)
                 {
-                    Log.Error($"Order {cliOrdID} not found in cache for success");
+                    Log.Error($"Order {o.ClOrdId} not found in cache for success with {o.OrdStatus}");
                 }
                 else
                 {
+                    oms_processed_cache.Add(order.ClientOrderID, order);
                     order.Status = OrderStateIdentifier.CONFIRMED;
                 }
             }
         }
 
-        private void TakeActionFailure(string cliOrdID)
+        private void TakeActionFailure(OrderDto o)
         {
+            bool process = false;
+            Log.Info($"{o.Symbol} failed with {o.OrdStatus} and {o.ClOrdId}");
             lock (oms_cache)
             {
                 MyOrder order = null;
 
-                if (oms_pending_cache.ContainsKey(cliOrdID))
+                if (oms_processed_cache.ContainsKey(o.ClOrdId))
                 {
-                    order = oms_pending_cache[cliOrdID];
-                    oms_pending_cache.Remove(cliOrdID);
+                    oms_processed_cache.Remove(o.ClOrdId);
+                    return;
                 }
-                else if (oms_cancel_cache.ContainsKey(cliOrdID))
+
+                if (oms_pending_cache.ContainsKey(o.ClOrdId))
                 {
-                    order = oms_cancel_cache[cliOrdID];
-                    oms_cancel_cache.Remove(cliOrdID);
+                    order = oms_pending_cache[o.ClOrdId];
+                    oms_pending_cache.Remove(o.ClOrdId);
                 }
-                else if (oms_amend_cache.ContainsKey(cliOrdID))
+                else if (oms_cancel_cache.ContainsKey(o.ClOrdId))
                 {
-                    order = oms_amend_cache[cliOrdID];
-                    oms_amend_cache.Remove(cliOrdID);
+                    order = oms_cancel_cache[o.ClOrdId];
+                    oms_cancel_cache.Remove(o.ClOrdId);
+                }
+                else if (oms_amend_cache.ContainsKey(o.ClOrdId))
+                {
+                    order = oms_amend_cache[o.ClOrdId];
+                    oms_amend_cache.Remove(o.ClOrdId);
+                }
+                else if (oms_cache.ContainsKey(o.Symbol) && oms_cache[o.Symbol].ClientOrderID == o.ClOrdId)
+                {
+                    oms_cache.Remove(o.Symbol);                    
                 }
 
                 if (order == null)
                 {
-                    Log.Error($"Order {cliOrdID} not found in cache for failure");
+                    Log.Error($"Order {o.ClOrdId} not found in cache for failure with {o.OrdStatus}");
                 }
                 else
                 {
+                    if (process)
+                        oms_processed_cache.Add(order.ClientOrderID, order);
                     order.Status = OrderStateIdentifier.CONFIRMED;
                 }
             }
@@ -385,82 +481,70 @@ namespace OMS
     
         private void ProcessDeleteResult(Task<BitmexApiResult<List<OrderDto>>> task)
         {
-            if (task.Exception != null)
+            foreach (var d in task.Result.Result)
             {
-                Log.ErrorException("Cancel Order Failed", task.Exception.InnerException ?? task.Exception);
-            }
-            else
-            {
-                foreach (var d in task.Result.Result)
+                if (d.OrdStatus == "PendingCancel" || d.OrdStatus == "Canceled")
                 {
-                    if (d.OrdStatus == "PendingCancel" || d.OrdStatus == "Canceled")
-                    {
-                        TakeActionSuccess(d.ClOrdId, d.OrdStatus);
-                    }
-                    else if (d.OrdStatus == "Rejected")
-                    {
-                        TakeActionFailure(d.ClOrdId);
-                        Log.Warn($"Rejection for {d.Symbol} on cancel with reason {d.OrdRejReason}");
-                    }
-                    else if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
-                    {
-                        TakeActionFailure(d.ClOrdId);
-                        Log.Error($"Invalid order status for {d.Symbol} on cancel with reason {d.OrdRejReason}");
-                    }
-                    else
-                    {
-                        Log.Warn($"Delete order request with unknown ordStatus {d.OrdStatus}");
-                    }
+                    Log.Info($"{d.OrdStatus} ACK on cancel");
+                    TakeActionSuccess(d);
                 }
-            }
+                else if (d.OrdStatus == "Rejected")
+                {
+                    TakeActionFailure(d);
+                    Log.Warn($"Rejection for {d.ClOrdId} on cancel with reason {d.OrdRejReason}");
+                }
+                else if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
+                {
+                    TakeActionFailure(d);
+                    Log.Error($"Invalid order status for {d.ClOrdId} on cancel with reason {d.OrdRejReason}");
+                }
+                else
+                {
+                    Log.Warn($"Delete order request for {d.ClOrdId} with unknown ordStatus {d.OrdStatus}");
+                }
+            }            
         }
 
         private void NewOrderResult(Task<BitmexApiResult<OrderDto>> task)
         {
-            if (task.Exception != null)
+                var d = task.Result.Result;
+
+            if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
             {
-                Log.ErrorException("New Order Failed", task.Exception.InnerException ?? task.Exception);
+                Log.Error($"Invalid order status on new order {d.ClOrdId}");
+                TakeActionFailure(d);
+            }
+            else if (d.OrdStatus == "Rejected")
+            {
+                TakeActionFailure(d);
+                Log.Error($"Order rejected on new for {d.ClOrdId} with reason {d.OrdRejReason}");
             }
             else
             {
-                var d = task.Result.Result;
-
-                if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
-                {
-                    Log.Error("Invalid order status on new order");
-                    TakeActionFailure(d.ClOrdId);
-                }
-                else
-                {
-                    TakeActionSuccess(d.ClOrdId, d.OrdStatus);
-                }
-            }
+                Log.Info($"{d.ClOrdId} successful ACK on New");
+                TakeActionSuccess(d);
+            }            
         }
 
         private void AmendOrderResult(Task<BitmexApiResult<OrderDto>> task)
         {
-            if (task.Exception != null)
+            var d = task.Result.Result;
+            if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
             {
-                Log.ErrorException("Amend Order Failed", task.Exception.InnerException ?? task.Exception);
+                Log.Error($"Invalid order status on amend order {d.ClOrdId}");
+                TakeActionFailure(d);
+            }
+            else if (d.OrdStatus == "Rejected")
+            {
+                TakeActionFailure(d);
+                Log.Error($"Order rejected on amend for {d.ClOrdId} with reason {d.OrdRejReason}");
             }
             else
             {
-                var d = task.Result.Result;
-                if (d.OrdStatus.ToUpper() == "INVALID ORDSTATUS")
-                {
-                    Log.Error("Invalid order status on amend order");
-                    TakeActionFailure(d.ClOrdId);
-                }
-                else if (d.OrdStatus == "Rejected")
-                {
-                    TakeActionFailure(d.ClOrdId);
-                    Log.Error("Order rejected on amend for {d.Symbol} with reason {d.OrdRejReason}");
-                }
-                else
-                {
-                    TakeActionSuccess(d.ClOrdId, d.OrdStatus);
-                }
+                Log.Info($"Order ACK on amend for {d.ClOrdId}");
+                TakeActionSuccess(d);
             }
+            
         }
         
         private void OnOrderMessage(BitmexSocketDataMessage<IEnumerable<OrderDto>> response)
@@ -481,14 +565,30 @@ namespace OMS
         }
         private void OnStart()
         {
-            foreach (var d in queue.GetConsumingEnumerable(CancellationToken.None))
+            try
             {
-                OnOrderMessage(d);
-
-                foreach(var o in d.Data)
+                foreach (var d in queue.GetConsumingEnumerable(CancellationToken.None))
                 {
-                    clientNotificationQ.Add(o);
+                    foreach (var o in d.Data)
+                    {
+                        if (string.IsNullOrEmpty(o.OrdStatus))
+                            continue;
+
+                        if (o.OrdStatus.ToUpper() == "INVALID ORDSTATUS" || o.OrdStatus == "Rejected")
+                        {
+                            TakeActionFailure(o);                            
+                        }
+                        else
+                        {
+                            TakeActionSuccess(o);
+                        }
+                        clientNotificationQ.Add(o);
+                    }
                 }
+            }
+            catch(Exception e)
+            {
+                Log.FatalException("OMS Thread crashed", e);
             }
         }
 
@@ -498,7 +598,14 @@ namespace OMS
             {
                 if (orderHandler != null)
                 {
-                    orderHandler(d);
+                    try
+                    {
+                        orderHandler(d);
+                    }
+                    catch(Exception e)
+                    {
+                        Log.ErrorException("Client order notification handler excepted", e);
+                    }
                 }
             }
         }

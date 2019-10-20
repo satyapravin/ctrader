@@ -77,51 +77,66 @@ namespace Executor
                         var liveReq = oSvc.GetLiveOrderForSymbol(Symbol);
                         var pendingReq = oSvc.GetPendingOrderForSymbol(Symbol);
 
+                        Log.Info($"MM-{Symbol} targetValue {positionValue} current Qty {currentQty} delta Value {posval} delta Quantity {deltaQ}");
+
                         if (pendingReq == null)
                         {
-                            if (deltaQ > 0)
+                            Log.Info($"MM-{Symbol} has no pending orders");
+                            if (Math.Round(deltaQ) > 0)
                             {
                                 if (liveReq == null)
                                 {
+                                    Log.Info($"MM-{Symbol} has no live orders");
                                     if (chase)
                                     {
-                                        liveReq = oSvc.NewBuyOrderPost(Symbol, deltaQ, bidPrice);
+                                        liveReq = oSvc.NewBuyOrderPost(Symbol, Math.Round(deltaQ, 0), bidPrice);
                                     }
                                     else
                                     {
-                                        liveReq = oSvc.NewBuyOrderMkt(Symbol, deltaQ);
+                                        liveReq = oSvc.NewBuyOrderMkt(Symbol, Math.Round(deltaQ, 0));
                                     }
 
                                     liveReq.Send();
                                 }
                                 else
                                 {
-                                    liveReq.Cancel();
+                                    if (deltaQ - Math.Round(deltaQ, 0) > 0.6m)
+                                    {
+                                        Log.Info($"MM-{Symbol} target quantity changed. Canceling (will amend in future)");
+                                        liveReq.Cancel();
+                                    }
                                 }
                             }
-                            else if (deltaQ < 0)
+                            else if (Math.Round(deltaQ, 0) < 0)
                             {
                                 if (liveReq == null)
                                 {
+                                    Log.Info($"MM-{Symbol} has no live orders");
                                     if (chase)
                                     {
-                                        liveReq = oSvc.NewSellOrderPost(Symbol, -deltaQ, askPrice);
+                                        liveReq = oSvc.NewSellOrderPost(Symbol, -Math.Round(deltaQ, 0), askPrice);
                                     }
                                     else
                                     {
-                                        liveReq = oSvc.NewSellOrderMkt(Symbol, -deltaQ);
+                                        liveReq = oSvc.NewSellOrderMkt(Symbol, -Math.Round(deltaQ, 0));
                                     }
                                     liveReq.Send();
                                 }
                                 else
                                 {
-                                    liveReq.Cancel();
+                                    if (deltaQ - Math.Round(deltaQ, 0) > 0.6m)
+                                    {
+                                        Log.Info($"MM-{Symbol} target quantity changed. Canceling (will amend in future)");
+                                        liveReq.Cancel();
+                                    }
                                 }
                             }
                             else
                             {
+                                Log.Info($"MM-{Symbol} has not changed target quantity");
                                 if (liveReq != null)
                                 {
+                                    Log.Info($"MM-{Symbol} has live order. Will try amend price");
                                     if (chase)
                                     {
                                         if (liveReq.Side == MyOrder.OrderSide.BUY && bidPrice != liveReq.Price)

@@ -110,6 +110,24 @@ namespace Bitmex.NET
                     respReceived.Set();
                 }
             };
+
+            if (!_actions.ContainsKey(subscriptionName))
+            {
+                _actions.Add(subscriptionName, new List<BitmexApiSubscriptionInfo> { subscription });
+                var q = new BlockingCollection<DataEventArgs>();
+                _queues.Add(subscriptionName, q);
+                var processor = new Thread(() => Consume(q, subscription));
+                processor.IsBackground = true;
+                processor.Name = subscriptionName;
+                _processors.Add(subscriptionName, processor);
+                processor.Start();
+
+            }
+            else
+            {
+                _actions[subscriptionName].Add(subscription);
+            }
+
             _bitmexApiSocketProxy.OperationResultReceived += resultReceived;
             Log.Info($"Subscribing on {subscriptionName}...");
             _bitmexApiSocketProxy.Send(message);
@@ -117,30 +135,17 @@ namespace Bitmex.NET
             _bitmexApiSocketProxy.OperationResultReceived -= resultReceived;
             if (!waitReuslt)
             {
+                _queues[subscriptionName].CompleteAdding();
                 throw new BitmexSocketSubscriptionException("Subscription failed: timeout waiting subscription response");
             }
 
             if (success)
             {
-
                 Log.Info($"Successfully subscribed on {subscriptionName} ");
-                if (!_actions.ContainsKey(subscription.SubscriptionName))
-                {
-                    _actions.Add(subscription.SubscriptionName, new List<BitmexApiSubscriptionInfo> { subscription });
-                    var q = new BlockingCollection<DataEventArgs>();
-                    _queues.Add(subscription.SubscriptionName, q);
-                    var processor = new Thread(() => Consume(q, subscription));
-                    _processors.Add(subscription.SubscriptionName, processor);
-                    processor.Start();
-                    
-                }
-                else
-                {
-                    _actions[subscription.SubscriptionName].Add(subscription);
-                }
             }
             else
             {
+                _queues[subscriptionName].CompleteAdding();
                 Log.Error($"Failed to subscribe on {subscriptionName} {error} ");
                 throw new BitmexSocketSubscriptionException(error, errorArgs);
             }
@@ -155,11 +160,15 @@ namespace Bitmex.NET
                 {
                     args = dataItems.Take();
                 }
-                catch (InvalidOperationException) { }
+                catch (InvalidOperationException e) { Log.FatalException("Deque failed", e); }
 
                 if (args != null)
                 {
-                    subscription.Execute(args.Data, args.Action);
+                    try
+                    {
+                        subscription.Execute(args.Data, args.Action);
+                    }
+                    catch(Exception e) { Log.FatalException("Consumer failed", e); }
                 }
             }
         }

@@ -79,20 +79,24 @@ namespace CTrader
 
             omsSvc.RegisterHandler(InstrXCFUSD.Symbol(), new OMS.OnOrder(processOMSMessage));
             mdsSvc.Register(symbols);
-            var w1 = mdsSvc.Start();
+            var w1 = mgsSvc.Start();
+            Thread.Sleep(2000);
             var w2 = pSvc.Start();
-            var w3 = mgsSvc.Start();
+            Thread.Sleep(2000);
+            var w3 = mdsSvc.Start();
+            Thread.Sleep(2000);
             var w4 = omsSvc.Start();
+            Thread.Sleep(2000);
             var w5 = bitmexSvc.Start();
 
-            w5.WaitOne();
-            Log.Info($"{bitmexSvc.Service} started");
             w1.WaitOne();
-            Log.Info($"{mdsSvc.Service} started");
+            Log.Info($"{mgsSvc.Service} started");
             w2.WaitOne();
             Log.Info($"{pSvc.Service} started");
+            w5.WaitOne();
+            Log.Info($"{bitmexSvc.Service} started");
             w3.WaitOne();
-            Log.Info($"{mgsSvc.Service} started");
+            Log.Info($"{mdsSvc.Service} started");
             w4.WaitOne();
             Log.Info($"{omsSvc.Service} started");
 
@@ -108,7 +112,7 @@ namespace CTrader
             while (true)
             {
                 var amount = mgsSvc.Amount * 0.75m;
-                amount *= 30;
+                amount *= 50;
 
                 var btcAsk = mdsSvc.GetBestAsk(InstrXBTUSD.Symbol());
                 var ethAsk = mdsSvc.GetBestAsk(InstrETHUSD.Symbol());

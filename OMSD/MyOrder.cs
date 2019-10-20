@@ -59,7 +59,7 @@ namespace OMS
         public RequestType Request { get; set; }
         public MyOrder ChildOrder { get; set; }
         public OrderDto Execution { get; set; }
-        public decimal Quantity { get; set; }
+        public long Quantity { get; set; }
         public decimal Price { get; set; }
         public OrderStateIdentifier Status { get; set; }
         public string Symbol { get; set; }
