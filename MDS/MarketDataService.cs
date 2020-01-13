@@ -1,18 +1,17 @@
 ﻿using Bitmex.NET.Dtos;
 using Bitmex.NET.Dtos.Socket;
-using EmbeddedService;
-using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using ExchangeService;
+using EmbeddedService;
 
 namespace MDS
 {
     public class MarketDataService : IEmbeddedService
     {
-        System.Threading.EventWaitHandle waitHandle = new System.Threading.AutoResetEvent(false);
-        ConcurrentDictionary<string, OrderBook> booksBySymbol = new ConcurrentDictionary<string, OrderBook>();
-        private List<string> symbols = new List<string>();
+        readonly System.Threading.EventWaitHandle waitHandle = new System.Threading.AutoResetEvent(false);
+        readonly ConcurrentDictionary<string, OrderBook> booksBySymbol = new ConcurrentDictionary<string, OrderBook>();
+        private readonly List<string> symbols = new List<string>();
 
         public ServiceType Service { get { return ServiceType.MDS; } }
         public void Register(List<string> s)
@@ -52,7 +51,7 @@ namespace MDS
                 if (msg.Action == BitmexActions.Partial)
                 {
                     foreach (var book in msg.Data)
-                        booksBySymbol.Remove(book.Symbol, out OrderBook destroy);
+                        booksBySymbol.TryRemove(book.Symbol, out _);
                 }
 
                 foreach (var d in msg.Data)

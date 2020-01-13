@@ -1,6 +1,5 @@
 ﻿using Bitmex.NET.Authorization;
 using Bitmex.NET.Dtos;
-using Bitmex.NET.Logging;
 using Bitmex.NET.Models;
 using Newtonsoft.Json;
 using System;
@@ -9,12 +8,13 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using log4net;
 
 namespace Bitmex.NET
 {
     public class BitmexApiProxy : IBitmexApiProxy
     {
-        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
+        private static readonly ILog Log = log4net.LogManager.GetLogger("BitmexApiProxy");
 
         private readonly IBitmexAuthorization _bitmexAuthorization;
         private readonly IExpiresTimeProvider _expiresTimeProvider;

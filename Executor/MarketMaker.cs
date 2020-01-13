@@ -1,20 +1,18 @@
-﻿
-
-using System;
+﻿using System;
 using System.Threading;
 using OMS;
 using MDS;
 using PMS;
 using EmbeddedService;
-using Executor.Logging;
+using log4net;
 
 namespace Executor
 {
     public class MarketMaker
     {
-        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
+        private static readonly ILog Log = log4net.LogManager.GetLogger(typeof(MarketMaker));
         public string Symbol { get { return prop.Symbol(); } }
-        private InstrProp prop;
+        private readonly InstrProp prop;
         private volatile bool breakLoop = false;
         private decimal positionValue = 0;
         private decimal targetPrice = 0;
@@ -27,9 +25,11 @@ namespace Executor
 
         public void Start()
         {
-            var thread = new Thread(new ThreadStart(OnStart));
-            thread.Name = "MM-" + Symbol;
-            thread.IsBackground = true;
+            var thread = new Thread(new ThreadStart(OnStart))
+            {
+                Name = "MM-" + Symbol,
+                IsBackground = true
+            };
             thread.Start();
         }
 
@@ -155,7 +155,7 @@ namespace Executor
             }
             catch (Exception e)
             {
-                Log.FatalException(Symbol, e);
+                Log.Fatal(Symbol, e);
             }
         }
 

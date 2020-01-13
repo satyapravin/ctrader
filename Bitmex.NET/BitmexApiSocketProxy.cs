@@ -1,5 +1,4 @@
 ﻿using Bitmex.NET.Dtos.Socket;
-using Bitmex.NET.Logging;
 using Bitmex.NET.Models;
 using Bitmex.NET.Models.Socket;
 using Bitmex.NET.Models.Socket.Events;
@@ -10,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using WebSocket4Net;
 using DataEventArgs = Bitmex.NET.Models.Socket.Events.DataEventArgs;
+using log4net;
 
 namespace Bitmex.NET
 {
@@ -27,7 +27,7 @@ namespace Bitmex.NET
 
     public class BitmexApiSocketProxy : IBitmexApiSocketProxy
     {
-        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
+        private static readonly ILog Log = log4net.LogManager.GetLogger("BitmexApiSocketProxy");
         private const int SocketMessageResponseTimeout = 10000;
         private readonly ManualResetEvent _welcomeReceived = new ManualResetEvent(false);
         private readonly IBitmexAuthorization _bitmexAuthorization;
@@ -49,12 +49,12 @@ namespace Bitmex.NET
             CloseConnectionIfItsNotNull();
             _socketConnection = new WebSocket($"wss://{Environments.Values[_bitmexAuthorization.BitmexEnvironment]}/realtime") { EnableAutoSendPing = true, AutoSendPingInterval = 2 };
             BitmexWelcomeMessage welcomeData = null;
-            EventHandler<MessageReceivedEventArgs> welcomeMessageReceived = (sender, e) =>
+            void welcomeMessageReceived(object sender, MessageReceivedEventArgs e)
             {
                 Log.Debug($"Welcome Data Received {e.Message}");
                 welcomeData = JsonConvert.DeserializeObject<BitmexWelcomeMessage>(e.Message);
                 _welcomeReceived.Set();
-            };
+            }
             _socketConnection.MessageReceived += welcomeMessageReceived;
             _socketConnection.Open();
             var waitResult = _welcomeReceived.WaitOne(SocketMessageResponseTimeout);
@@ -148,7 +148,7 @@ namespace Bitmex.NET
 
         protected virtual void OnErrorReceived(ErrorEventArgs args)
         {
-            Log.Error(args.Exception, "Socket connection");
+            Log.Error("Socket exception", args.Exception);
             ErrorReceived?.Invoke(new BitmextErrorEventArgs(args.Exception));
         }
 

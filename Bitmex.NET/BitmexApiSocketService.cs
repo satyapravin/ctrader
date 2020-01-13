@@ -1,5 +1,4 @@
 ﻿using Bitmex.NET.Authorization;
-using Bitmex.NET.Logging;
 using Bitmex.NET.Models.Socket;
 using Bitmex.NET.Models.Socket.Events;
 using System;
@@ -7,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using log4net;
 
 namespace Bitmex.NET
 {
@@ -34,7 +34,7 @@ namespace Bitmex.NET
 
     public class BitmexApiSocketService : IBitmexApiSocketService, IDisposable
     {
-        private static readonly ILog Log = LogProvider.GetCurrentClassLogger();
+        private static readonly ILog Log = log4net.LogManager.GetLogger("BitmexApiSocketService");
         private const int SocketMessageResponseTimeout = 5000;
 
         private readonly IBitmexAuthorization _bitmexAuthorization;
@@ -99,7 +99,7 @@ namespace Bitmex.NET
             string error = string.Empty;
             string status = string.Empty;
             var errorArgs = new string[0];
-            OperationResultEventHandler resultReceived = args =>
+            void resultReceived(OperationResultEventArgs args)
             {
                 if (args.OperationType == OperationType.subscribe)
                 {
@@ -109,16 +109,18 @@ namespace Bitmex.NET
                     errorArgs = args.Args;
                     respReceived.Set();
                 }
-            };
+            }
 
             if (!_actions.ContainsKey(subscriptionName))
             {
                 _actions.Add(subscriptionName, new List<BitmexApiSubscriptionInfo> { subscription });
                 var q = new BlockingCollection<DataEventArgs>();
                 _queues.Add(subscriptionName, q);
-                var processor = new Thread(() => Consume(q, subscription));
-                processor.IsBackground = true;
-                processor.Name = subscriptionName;
+                var processor = new Thread(() => Consume(q, subscription))
+                {
+                    IsBackground = true,
+                    Name = subscriptionName
+                };
                 _processors.Add(subscriptionName, processor);
                 processor.Start();
 
@@ -160,7 +162,7 @@ namespace Bitmex.NET
                 {
                     args = dataItems.Take();
                 }
-                catch (InvalidOperationException e) { Log.FatalException("Deque failed", e); }
+                catch (InvalidOperationException e) { Log.Fatal("Deque failed", e); }
 
                 if (args != null)
                 {
@@ -168,7 +170,7 @@ namespace Bitmex.NET
                     {
                         subscription.Execute(args.Data, args.Action);
                     }
-                    catch(Exception e) { Log.FatalException("Consumer failed", e); }
+                    catch(Exception e) { Log.Fatal("Consumer failed", e); }
                 }
             }
         }
@@ -183,7 +185,7 @@ namespace Bitmex.NET
                 string error = string.Empty;
                 string status = string.Empty;
                 var errorArgs = new string[0];
-                OperationResultEventHandler resultReceived = args =>
+                void resultReceived(OperationResultEventArgs args)
                 {
                     if (args.OperationType == OperationType.unsubscribe)
                     {
@@ -193,7 +195,7 @@ namespace Bitmex.NET
                         errorArgs = args.Args;
                         semafore.Release(1);
                     }
-                };
+                }
                 _bitmexApiSocketProxy.OperationResultReceived += resultReceived;
                 Log.Info($"Unsubscribing on {subscriptionName}...");
                 _bitmexApiSocketProxy.Send(message);
@@ -240,7 +242,7 @@ namespace Bitmex.NET
             var respReceived = new ManualResetEvent(false);
             var data = new string[0];
             var error = string.Empty;
-            OperationResultEventHandler resultReceived = args =>
+            void resultReceived(OperationResultEventArgs args)
             {
                 if (args.OperationType == OperationType.authKeyExpires)
                 {
@@ -249,7 +251,7 @@ namespace Bitmex.NET
                     data = args.Args;
                     respReceived.Set();
                 }
-            };
+            }
 
             var signatureString = _signatureProvider.CreateSignature(_bitmexAuthorization.Secret, $"GET/realtime{expiresTime}");
             var message = new SocketAuthorizationMessage(_bitmexAuthorization.Key, expiresTime, signatureString);
@@ -278,7 +280,6 @@ namespace Bitmex.NET
         {
             if (_actions.ContainsKey(args.TableName))
             {
-                int ii = _actions[args.TableName].Count;
                 foreach (var subscription in _actions[args.TableName])
                 {
                     if (_queues.ContainsKey(subscription.SubscriptionName))

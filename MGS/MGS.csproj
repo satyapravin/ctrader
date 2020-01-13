@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{7DCE552D-6CC0-4CA8-92CA-E83F09B38AAF}</ProjectGuid>
+    <ProjectGuid>{FC8852D5-2443-49D2-8D54-714BA412B732}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>MarketDataService</RootNamespace>
-    <AssemblyName>MarketDataService</AssemblyName>
+    <RootNamespace>ES</RootNamespace>
+    <AssemblyName>ES</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -41,23 +41,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MarketDataService.cs" />
-    <Compile Include="OrderBook.cs" />
+    <Compile Include="MarginService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Bitmex.NET\Bitmex.NET.csproj">
-      <Project>{fd655e11-0586-414e-9f53-71e86f27e113}</Project>
-      <Name>Bitmex.NET</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\EmbeddedService\EmbeddedService.csproj">
-      <Project>{54424817-b577-454e-9b92-97c1223dde54}</Project>
-      <Name>EmbeddedService</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ExchangeService\ExchangeService.csproj">
-      <Project>{aa5400cd-72d2-4de9-ae14-dee5dfd05d81}</Project>
-      <Name>ExchangeService</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
