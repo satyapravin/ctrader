@@ -10,7 +10,7 @@ class Contact extends Component {
       <div className='contact'>
         <div className="title">Contact Us!</div>
         <div className="content-container">
-          <h4>CTrader</h4>
+          <h4>CTrader</h4> </div></div>
     );
   }
 }

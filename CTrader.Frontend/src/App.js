@@ -62,7 +62,7 @@ class App extends Component {
                   <span className="nav-link" onClick={() => this.handleGoto('/home')}>Home <span className="sr-only">(current)</span></span>
                 </li>
                 <li className="nav-item active">
-                  <span className="nav-link" onClick={() => this.handleGoto('/deals')}>Deals</span>
+                  <span className="nav-link" onClick={() => this.handleGoto('/trade_summary')}>Trades</span>
                 </li>
                 <li className="nav-item active">
                   <span className="nav-link" onClick={() => this.handleGoto('/contact')}>Contact</span>

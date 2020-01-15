@@ -5,12 +5,16 @@ import { faStopCircle } from '@fortawesome/free-solid-svg-icons';
 import { faPlayCircle } from '@fortawesome/free-solid-svg-icons';
 import { faRedo } from '@fortawesome/free-solid-svg-icons';
 import { consoleService } from '../../bal/console.bal';
+import OrderGrid from '../order_grid/OrderGrid';
 
 class TradeSummary extends Component {
 
   constructor(props) {
     super(props);
 
+    this.state = {
+      total: 0
+    };
     this.start = this.start.bind(this);
     this.stop = this.stop.bind(this);
     this.rebalance = this.rebalance.bind(this);
