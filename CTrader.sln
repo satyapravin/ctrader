@@ -24,6 +24,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Executor", "Executor\Executor.csproj", "{91F97CBA-51A9-47B7-8938-55BB234DB4E1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CTrader.WebAPI", "CTrader.WebAPI\CTrader.WebAPI.csproj", "{BC065D62-BF9A-4E65-BDA2-D268CB79FC0C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -62,6 +64,10 @@ Global
 		{91F97CBA-51A9-47B7-8938-55BB234DB4E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{91F97CBA-51A9-47B7-8938-55BB234DB4E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{91F97CBA-51A9-47B7-8938-55BB234DB4E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC065D62-BF9A-4E65-BDA2-D268CB79FC0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC065D62-BF9A-4E65-BDA2-D268CB79FC0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC065D62-BF9A-4E65-BDA2-D268CB79FC0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC065D62-BF9A-4E65-BDA2-D268CB79FC0C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

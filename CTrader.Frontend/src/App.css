@@ -1,0 +1,47 @@
+body{
+  font-family: AvenirNextPForBBG,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  /* background-color: #fff !important; */
+  background-color: black !important;
+  color:white;
+}
+.navbar{
+  padding: 2px 8px !important;
+}
+.trade-container{
+  width: 100%;
+  height:100%;
+  background-color: black !important;
+}
+.nav-dark {
+  font-family: AvenirNextPForBBG,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  background: #000 !important;
+  position: relative;
+  color:#fff;
+  font-size: 13px;
+}
+
+.Content{
+  background: #000 !important;
+  min-height: 90vh;
+  opacity: 0.95;
+  text-align: justify;
+  box-shadow: 0 0 20px -5px #fff;
+  -webkit-transition: .3s ease-in-out;
+  transition: .3s ease-in-out;
+  /* padding:10px; */
+  padding:10px;
+  color:#fff;
+}
+.subContent{
+padding:5px;
+height:"100%";
+width: '100%'
+}
+.nav-link{
+  cursor: pointer;
+}
+.login{
+  font-weight: 800;
+  border:solid 2px white;
+  border-radius: 25px;
+}

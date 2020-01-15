@@ -1,0 +1,182 @@
+{
+    "users": [
+        {
+            "name": "ADMIN",
+            "email": "admin@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "999999"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AB",
+            "email": "ab@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "2"
+                },
+                {
+                    "tag": "3"
+                },
+                {
+                    "tag": "4"
+                },
+                {
+                    "tag": "5"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AC",
+            "email": "ac@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "2"
+                },
+                {
+                    "tag": "3"
+                },
+                {
+                    "tag": "4"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AD",
+            "email": "ad@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "2"
+                },
+                {
+                    "tag": "3"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AE",
+            "email": "ae@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "2"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AF",
+            "email": "af@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "2"
+                },
+                {
+                    "tag": "4"
+                },
+                {
+                    "tag": "5"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AG",
+            "email": "ag@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "3"
+                },
+                {
+                    "tag": "5"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AH",
+            "email": "ah@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "5"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AI",
+            "email": "ai@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "3"
+                },
+
+                {
+                    "tag": "5"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AJ",
+            "email": "aj@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "5"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AK",
+            "email": "ak@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "2"
+                },
+                {
+                    "tag": "5"
+                }
+            ],
+            "isActive": true
+        },
+        {
+            "name": "AL",
+            "email": "al@torinvestment.com",
+            "tags": [
+                {
+                    "tag": "1"
+                },
+                {
+                    "tag": "4"
+                }
+            ],
+            "isActive": true
+        }
+    ]
+}
