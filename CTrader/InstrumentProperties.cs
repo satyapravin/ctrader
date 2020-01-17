@@ -1,18 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
-namespace Executor
+namespace CTrader
 {
-    public interface InstrProp
+    public interface IInstrProp
     {
         string Symbol();
+
+        string Reference();
         decimal GetQuantity(decimal posval, decimal bid, decimal ask);
 
         decimal GetPositionValue(decimal quantity, decimal bid, decimal ask);
     }
 
-    public class XBTUSD : InstrProp
+    public class XBTUSD : IInstrProp
     {
         public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
@@ -46,9 +50,14 @@ namespace Executor
         {
             return "XBTUSD";
         }
+
+        public string Reference()
+        {
+            return ".BXBT";
+        }
     }
 
-    public class ETHUSD : InstrProp
+    public class ETHUSD : IInstrProp
     {
         public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
@@ -80,9 +89,16 @@ namespace Executor
         {
             return "ETHUSD";
         }
+
+
+        public string Reference()
+        {
+            throw new NotImplementedException("Reference does not exist for ETH");
+        }
+
     }
 
-    public class XCFUSD : InstrProp
+    public class XCFUSD : IInstrProp
     {
         public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
@@ -114,7 +130,13 @@ namespace Executor
 
         public string Symbol()
         {
-            return "ETHZ19";
+            return "ETHH20";
+        }
+
+        public string Reference()
+        {
+            return ".BETHXBT30M";
         }
     }
+
 }

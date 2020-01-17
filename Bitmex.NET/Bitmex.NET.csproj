@@ -127,7 +127,7 @@
   <ItemGroup>
     <Compile Include="Authorization\ExpiresTimeProvider.cs" />
     <Compile Include="Authorization\SignatureProvider.cs" />
-    <Compile Include="BitmetSocketSubscriptions.cs" />
+    <Compile Include="BitmexSocketSubscriptions.cs" />
     <Compile Include="BitmexApiException.cs" />
     <Compile Include="BitmexApiProxy.cs" />
     <Compile Include="BitmexApiResult.cs" />

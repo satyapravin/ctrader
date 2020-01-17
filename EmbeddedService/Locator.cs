@@ -10,7 +10,7 @@ namespace EmbeddedService
         public static Locator Instance = new Locator();
         private Locator() { }
 
-        Dictionary<ServiceType, IEmbeddedService> services = new Dictionary<ServiceType, IEmbeddedService>();
+        readonly Dictionary<ServiceType, IEmbeddedService> services = new Dictionary<ServiceType, IEmbeddedService>();
         public IEmbeddedService GetService(ServiceType serviceType)
         {
             IEmbeddedService service = null;
