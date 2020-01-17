@@ -6,16 +6,16 @@ using System.Collections.Generic;
 
 namespace Bitmex.NET
 {
-    public static class BitmetSocketSubscriptions
+    public static class BitmexSocketSubscriptions
     {
-        public static BitmexApiSubscriptionInfo<IEnumerable<InstrumentDto>> CreateInstrumentSubsription(Action<BitmexSocketDataMessage<IEnumerable<InstrumentDto>>> act)
+        public static BitmexApiSubscriptionInfo<IEnumerable<InstrumentDto>> CreateInstrumentSubsription(Action<BitmexSocketDataMessage<IEnumerable<InstrumentDto>>> act, object[] symbols)
         {
-            return BitmexApiSubscriptionInfo<IEnumerable<InstrumentDto>>.Create(SubscriptionType.instrument, act);
+            return BitmexApiSubscriptionInfo<IEnumerable<InstrumentDto>>.Create(SubscriptionType.instrument, act).WithArgs(symbols);
         }
 
-        public static BitmexApiSubscriptionInfo<IEnumerable<OrderBook10Dto>> CreateOrderBook10Subsription(Action<BitmexSocketDataMessage<IEnumerable<OrderBook10Dto>>> act)
+        public static BitmexApiSubscriptionInfo<IEnumerable<OrderBook10Dto>> CreateOrderBook10Subsription(Action<BitmexSocketDataMessage<IEnumerable<OrderBook10Dto>>> act, object[] symbols)
         {
-            return BitmexApiSubscriptionInfo<IEnumerable<OrderBook10Dto>>.Create(SubscriptionType.orderBook10, act);
+            return BitmexApiSubscriptionInfo<IEnumerable<OrderBook10Dto>>.Create(SubscriptionType.orderBook10, act).WithArgs(symbols);
         }
 
         public static BitmexApiSubscriptionInfo<IEnumerable<OrderBookDto>> CreateOrderBookL2Subsription(Action<BitmexSocketDataMessage<IEnumerable<OrderBookDto>>> act)

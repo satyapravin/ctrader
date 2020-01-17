@@ -4,16 +4,17 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{7DCE552D-6CC0-4CA8-92CA-E83F09B38AAF}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>MarketDataService</RootNamespace>
-    <AssemblyName>MarketDataService</AssemblyName>
+    <ProjectGuid>{EB42EF9E-AAE0-4E2D-B389-7D95F2A2B770}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>CTrader</RootNamespace>
+    <AssemblyName>CTrader</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -23,6 +24,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -32,6 +34,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -41,18 +44,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MarketDataService.cs" />
-    <Compile Include="OrderBook.cs" />
+    <Compile Include="InstrumentProperties.cs" />
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bitmex.NET\Bitmex.NET.csproj">
       <Project>{fd655e11-0586-414e-9f53-71e86f27e113}</Project>
       <Name>Bitmex.NET</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\EmbeddedService\EmbeddedService.csproj">
-      <Project>{54424817-b577-454e-9b92-97c1223dde54}</Project>
-      <Name>EmbeddedService</Name>
     </ProjectReference>
     <ProjectReference Include="..\ExchangeService\ExchangeService.csproj">
       <Project>{aa5400cd-72d2-4de9-ae14-dee5dfd05d81}</Project>

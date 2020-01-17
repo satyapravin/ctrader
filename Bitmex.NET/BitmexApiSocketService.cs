@@ -21,10 +21,10 @@ namespace Bitmex.NET
 
         /// <summary>
         /// Sends to the server a request for subscription on specified topic with specified arguments and waits for response from it.
-        /// If you ok to use provided DTO mdoels for socket communication please use <see cref="BitmetSocketSubscriptions"/> static methods to avoid Subscription->Model mapping mistakes.
+        /// If you ok to use provided DTO mdoels for socket communication please use <see cref="BitmexSocketSubscriptions"/> static methods to avoid Subscription->Model mapping mistakes.
         /// </summary>
         /// <exception cref="BitmexSocketSubscriptionException">Throws when either timeout is reached or server retured an error.</exception>
-        /// <param name="subscription">Specific subscription details. Check out <see cref="BitmetSocketSubscriptions"/>.</param>
+        /// <param name="subscription">Specific subscription details. Check out <see cref="BitmexSocketSubscriptions"/>.</param>
         void Subscribe(BitmexApiSubscriptionInfo subscription);
 
         void Unsubscribe(BitmexApiSubscriptionInfo subscription);
@@ -85,11 +85,11 @@ namespace Bitmex.NET
 
         /// <summary>
         /// Sends to the server a request for subscription on specified topic with specified arguments and waits for response from it.
-        /// If you ok to use provided DTO mdoels for socket communication please use <see cref="BitmetSocketSubscriptions"/> static methods to avoid Subscription->Model mapping mistakes.
+        /// If you ok to use provided DTO mdoels for socket communication please use <see cref="BitmexSocketSubscriptions"/> static methods to avoid Subscription->Model mapping mistakes.
         /// </summary>
         /// <exception cref="BitmexSocketSubscriptionException">Throws when either timeout is reached or server retured an error.</exception>
         /// <typeparam name="T">Expected type</typeparam>
-        /// <param name="subscription">Specific subscription details. Check out <see cref="BitmetSocketSubscriptions"/>.</param>
+        /// <param name="subscription">Specific subscription details. Check out <see cref="BitmexSocketSubscriptions"/>.</param>
         public void Subscribe(BitmexApiSubscriptionInfo subscription)
         {
             var subscriptionName = subscription.SubscriptionName;

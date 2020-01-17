@@ -11,7 +11,25 @@ namespace Bitmex.NET.Models.Socket
 
         public object[] Args { get; protected set; }
 
-        public string SubscriptionWithArgs => (Args?.Any() ?? false) ? $"{SubscriptionName}:{string.Join(",", Args)}" : SubscriptionName;
+        public object[] SubscriptionWithArgs
+        {
+            get
+            {
+                if (Args != null && Args.Length > 0)
+                {
+                    for (int ii=0; ii < Args.Length; ++ii)
+                    {
+                        Args[ii] = SubscriptionName + ":" + Args[ii];
+                    }
+
+                    return Args;
+                }
+                else
+                {
+                    return new object[] { SubscriptionName };
+                }
+            }
+        }
 
         protected BitmexApiSubscriptionInfo(string subscriptionName)
         {

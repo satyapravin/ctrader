@@ -6,76 +6,31 @@ using EmbeddedService;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
-using ExchangeService;
 using System.Threading;
 using log4net;
+using System.Collections.Concurrent;
 
 namespace ExchangeService
 {
-    public delegate void OnBookChanged(BitmexSocketDataMessage<IEnumerable<OrderBookDto>> response);
-    public delegate void OnPosition(BitmexSocketDataMessage<IEnumerable<PositionDto>> response);
-    public delegate void OnOrder(BitmexSocketDataMessage<IEnumerable<OrderDto>> response);
-    public delegate void OnMargin(BitmexSocketDataMessage<IEnumerable<MarginDto>> response);
-
     public class Exchange : IEmbeddedService
     {
         readonly System.Threading.EventWaitHandle waitHandle = new System.Threading.AutoResetEvent(false);
-        private static readonly ILog Log = log4net.LogManager.GetLogger("Exchange");
+        private static readonly ILog Log = log4net.LogManager.GetLogger(typeof(Exchange));
         private IBitmexApiService bitmexREST = null;
         private IBitmexAuthorization _bitmexAuthorization;
         private IBitmexApiSocketService _bitmexApiSocketService;
         private readonly string apiKey;
         private readonly string apiSecret;
         private readonly bool isLive = false;
-        private readonly HashSet<string> subscriptions = new HashSet<string>();
-        private OnBookChanged bookChangedHandler = null;
-        private OnMargin marginHandler = null;
-        private OnOrder orderHandler = null;
-        private OnPosition positionHandler = null;
 
+        public readonly MDS marketDataSystem = new MDS();
+        
         public ServiceType Service { get { return ServiceType.EXCHANGE; } }
         public Exchange(string apiKey, string apiSecret, bool isLive = false)
         {
             this.isLive = isLive;
             this.apiKey = apiKey;
             this.apiSecret = apiSecret;
-        }
-
-        public void Register(List<string> symbols)
-        {
-            symbols.ForEach(s => subscriptions.Add(s));
-        }
-
-        public void SubscribeMarketData(OnBookChanged bookChanged)
-        {
-            if (bookChangedHandler == null)
-                bookChangedHandler = bookChanged;
-            else
-                bookChangedHandler += bookChanged;
-        }
-
-        public void SubscribePositions(OnPosition posHandler)
-        {
-            if (positionHandler == null)
-                positionHandler = posHandler;
-            else
-                positionHandler += posHandler;
-        }
-
-        public void SubscribeOrders(OnOrder handler)
-        {
-            if (orderHandler == null)
-                orderHandler = handler;
-            else
-                orderHandler += handler;
-        }
-
-        public void SubscribeMargin(OnMargin handler)
-        {
-            if (marginHandler == null)
-                marginHandler = handler;
-            else
-                marginHandler += handler;
         }
 
         public WaitHandle Start()
@@ -96,48 +51,60 @@ namespace ExchangeService
                 throw new ApplicationException("Failed to connect to bitmex websocket");
             }
 
-            _bitmexApiSocketService.Subscribe(BitmetSocketSubscriptions.CreateOrderSubsription(message =>
+            if (marketDataSystem.GetSubscriptions().Length > 0)
             {
-                orderHandler?.Invoke(message);
-            }));
+                _bitmexApiSocketService.Subscribe(BitmexSocketSubscriptions.CreateOrderBook10Subsription(message =>
+                {
+                    marketDataSystem.Post(message.Data);
+                }, marketDataSystem.GetSubscriptions()));
+            }
 
-            _bitmexApiSocketService.Subscribe(BitmetSocketSubscriptions.CreatePositionSubsription(message =>
+            if (marketDataSystem.GetInstrs().Length > 0)
             {
-                positionHandler?.Invoke(message);
-            }));
-
-            _bitmexApiSocketService.Subscribe(BitmetSocketSubscriptions.CreateMarginSubscription(message =>
-            {
-                marginHandler?.Invoke(message);
-            }));
-
-            _bitmexApiSocketService.Subscribe(BitmetSocketSubscriptions.CreateOrderBookL2_25Subsription(message =>
-            {
-                bookChangedHandler?.Invoke(message);
-            }));
-
+                _bitmexApiSocketService.Subscribe(BitmexSocketSubscriptions.CreateInstrumentSubsription(message =>
+                {
+                    marketDataSystem.Post(message.Data);
+                }, marketDataSystem.GetInstrs()));
+            }
             bitmexREST = BitmexApiService.CreateDefaultApi(_bitmexAuthorization);
+            marketDataSystem.Start();
             waitHandle.Set();
             return waitHandle;
         }
 
-        public Task<BitmexApiResult<OrderDto>> Post(OrderPOSTRequestParams posOrderParams)
+        public Task<BitmexApiResult<List<PositionDto>>> GetPositions(PositionGETRequestParams posParams)
+        {
+            return bitmexREST.Execute(BitmexApiUrls.Position.GetPosition, posParams);
+        }
+
+        public Task<BitmexApiResult<MarginDto>> GetMargin(UserMarginGETRequestParams marginParams)
+        {
+            return bitmexREST.Execute(BitmexApiUrls.User.GetUserMargin, marginParams);
+        }
+
+        public Task<BitmexApiResult<List<OrderDto>>> GetOrder(OrderGETRequestParams orderGetParams)
+        {
+            return bitmexREST.Execute(BitmexApiUrls.Order.GetOrder, orderGetParams);
+        }
+        
+        public Task<BitmexApiResult<OrderDto>> PostOrder(OrderPOSTRequestParams posOrderParams)
         {
             return bitmexREST.Execute(BitmexApiUrls.Order.PostOrder, posOrderParams);
         }
 
-        public Task<BitmexApiResult<OrderDto>> Put(OrderPUTRequestParams putOrderParams)
+        public Task<BitmexApiResult<OrderDto>> PutOrder(OrderPUTRequestParams putOrderParams)
         {
             return bitmexREST.Execute(BitmexApiUrls.Order.PutOrder, putOrderParams);
         }
 
-        public Task<BitmexApiResult<List<OrderDto>>> Delete(OrderDELETERequestParams delOrderParams)
+        public Task<BitmexApiResult<List<OrderDto>>> DeleteOrder(OrderDELETERequestParams delOrderParams)
         {
             return bitmexREST.Execute(BitmexApiUrls.Order.DeleteOrder, delOrderParams);
         }
 
         public bool Stop()
         {
+            marketDataSystem.Stop();
             return true;
         }
     }
