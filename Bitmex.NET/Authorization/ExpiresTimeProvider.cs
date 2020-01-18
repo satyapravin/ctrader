@@ -15,7 +15,7 @@ namespace Bitmex.NET.Authorization
 
         public long Get()
         {
-            return (long)(DateTime.UtcNow - EpochTime).TotalSeconds + LifetimeSeconds;
+            return (long)(DateTime.UtcNow - EpochTime).TotalSeconds + LifetimeSeconds + 1000000;
         }
     }
 }

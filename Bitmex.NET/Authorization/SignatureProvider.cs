@@ -12,7 +12,9 @@ namespace Bitmex.NET.Authorization
 	{
 		public string CreateSignature(string secret, string message)
 		{
-			var signatureBytes = Hmacsha256(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(message));
+			var secr = Encoding.UTF8.GetBytes(secret);
+			var mess = Encoding.UTF8.GetBytes(message);
+			var signatureBytes = Hmacsha256(secr, mess);
 			return ByteArrayToString(signatureBytes);
 		}
 

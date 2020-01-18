@@ -1,11 +1,11 @@
 import {createStore, applyMiddleware} from 'redux';
 
-import traderReducer from './reducers/traderReducer.jsx';
+import positionReducer from './reducers/positionReducer.jsx';
 import logger from "./middleware/logger.jsx";
 
-const initialState = {
-  traderRows: [
+const initialState = { 
+  positionRows: [
   ]
 };
 
-export default createStore(traderReducer, initialState, applyMiddleware(logger));
+export default createStore(positionReducer, initialState, applyMiddleware(logger));
