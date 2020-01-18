@@ -5,6 +5,8 @@ import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
 
+import './trade_summary.css';
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSync } from "@fortawesome/free-solid-svg-icons";
 import { faStopCircle } from '@fortawesome/free-solid-svg-icons';
