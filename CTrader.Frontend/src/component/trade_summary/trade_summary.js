@@ -33,8 +33,10 @@ class TradeSummary extends Component {
     this.state = {
       modules: AllModules,
       columnDefs: [
-        { headerName: "Account", field: "account", width: 150},
-        { headerName: "Symbol", field: "symbol", width: 75}
+        { headerName: "Account", field: "account", width: 100},
+        { headerName: "Symbol", field: "symbol", width: 100},
+        { headerName: "Qty", field: "currentQty", width: 100},
+        { headerName: "Value Last", field: "lastValue", width: 100}
       ],
       rowData: [],
       total: 0,
@@ -290,24 +292,11 @@ class TradeSummary extends Component {
     return (
       <div className='home'>
         <div className="title">Trade Summary</div>
-        <div style={{ resize: "vertical", overflow: "auto", height: "38vh", width: '100%', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
-          <AgGridReact
-                      ref="agGrid"
-                      modules={this.state.modules}
-                      columnDefs={this.state.columnDefs}
-                      defaultColDef={this.state.defaultColDef}
-                      rowData={this.props.positionRows}
-                      //onGridReady={params => params.api.sizeColumnsToFit()}
-                      deltaRowDataMode={true}
-                      getRowNodeId={data => data.__row_id__} 
-                      />
-         </div>
         <div className="content-container">
           <div id="home-accept-data">
             <div className="row">
               <div className="col-xs-12 col-sm-12 col-md-12 col-lg-12">
                 <div className="form-group">
-                    <h4>CTrader</h4>
                     <table>
                       <tbody>
                         <tr>
@@ -342,11 +331,27 @@ class TradeSummary extends Component {
                           </td>
                         </tr>  
                         <tr>
-                          <td>
+                          <td colSpan="4">
                             <br/>
-                            <div title="Start" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.start}><FontAwesomeIcon icon={faPlayCircle} /></div>
-                            <div title="Stop" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.stop}><FontAwesomeIcon icon={faStopCircle} /></div>
                             <div title="Rebalance" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.rebalance}><FontAwesomeIcon icon={faRedo} /></div>
+                            <div title="Stop" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.stop}><FontAwesomeIcon icon={faStopCircle} /></div>
+                            <div title="Start" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.start}><FontAwesomeIcon icon={faPlayCircle} /></div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td >
+                            <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                            <AgGridReact
+                                        ref="agGrid"
+                                        modules={this.state.modules}
+                                        columnDefs={this.state.columnDefs}
+                                        defaultColDef={this.state.defaultColDef}
+                                        rowData={this.props.positionRows}
+                                        //onGridReady={params => params.api.sizeColumnsToFit()}
+                                        deltaRowDataMode={true}
+                                        getRowNodeId={data => data.__row_id__} 
+                                        />
+                            </div>
                           </td>
                         </tr>
                       </tbody>
