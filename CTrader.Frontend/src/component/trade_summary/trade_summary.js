@@ -5,8 +5,6 @@ import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
 
-import './trade_summary.css';
-
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSync } from "@fortawesome/free-solid-svg-icons";
 import { faStopCircle } from '@fortawesome/free-solid-svg-icons';
@@ -34,16 +32,31 @@ class TradeSummary extends Component {
 
     this.state = {
       modules: AllModules,
-      columnDefs: [
+      defaultColDefPosition: { sortable: true, filter: true, resizable: true },
+      columnDefsPosition: [
         { headerName: "Account", field: "account", width: 100},
         { headerName: "Symbol", field: "symbol", width: 100},
         { headerName: "Qty", field: "currentQty", width: 100},
         { headerName: "Value Last", field: "lastValue", width: 100}
       ],
+      defaultColDefOrder: { sortable: true, filter: true, resizable: true },
+      columnDefsOrder: [
+        { headerName: "Status", field: "ordStatus", width: 100},
+        { headerName: "Account", field: "account", width: 100},
+        { headerName: "Side", field: "side", width: 100},
+        { headerName: "Symbol", field: "symbol", width: 100},
+        { headerName: "Qty", field: "orderQty", width: 100},
+        { headerName: "OrdType", field: "ordType", width: 100},
+        { headerName: "Price", field: "price", width: 100},
+        { headerName: "Settlement Currency", field: "settlCurrency", width: 100},
+        { headerName: "TimeInForce", field: "timeInForce", width: 100},
+        { headerName: "Timestamp", field: "timestamp", width: 100},
+        { headerName: "TransactionTime", field: "transactTime", width: 100},
+        { headerName: "Working Ind", field: "workingIndicator", width: 100}
+      ],
       rowData: [],
       total: 0,
       ws: null,
-      defaultColDef: { sortable: true, filter: true, resizable: true },
       user: Session.getItem(config.token),
       showPopup: false,
       display: "none"
@@ -124,22 +137,27 @@ class TradeSummary extends Component {
       //console.log("New Message - " + row.Traders);
 
       const { tradersList, logsList, tradersDictionary, logsDictionary } = this.state;
-      if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
-        console.log("Authentication successful!")
-        var _Data = {"op" : "subscribe", "args":["position"]};
-        ws.send(JSON.stringify(_Data));
-      } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
-        console.log("Subscription successful for " + row.request.args);
-        var _Data = {"op" : "subscribe", "args":["position"]};
-        //ws.send(_Data);
-      }
-      else if (row && row.table && row.table === 'position') {
+      if (row && row.table && row.table === 'order') {
+        //console.log('snapshotTraders:%o', row.Traders);
+        if (this.mounted) {
+          for (var index = 0; index < row.data.length; index++) {
+            this.props.actions.updateOrderRow(row.data[index]);
+          }
+        }
+      } else if (row && row.table && row.table === 'position') {
         //console.log('snapshotTraders:%o', row.Traders);
         if (this.mounted) {
           for (var index = 0; index < row.data.length; index++) {
             this.props.actions.updatePositionRow(row.data[index]);
           }
         }
+      } else if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
+        console.log("Authentication successful!")
+        var _Data = {"op" : "subscribe", "args":["position", "order"]};
+        ws.send(JSON.stringify(_Data));
+      } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
+        console.log("Subscription successful for " + row.request.args);
+        //ws.send(_Data);
       } else if (row.__MESSAGE__ === 'trader') {
         //console.log("__MESSAGE__ = trader - " + row.trader_id + " " + row.TAG + " " + row.acct);
         if (this.mounted) {
@@ -341,18 +359,32 @@ class TradeSummary extends Component {
                           </td>
                         </tr>
                         <tr>
-                          <td >
+                        <td >
                             <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                             <AgGridReact
-                                        ref="agGrid"
-                                        modules={this.state.modules}
-                                        columnDefs={this.state.columnDefs}
-                                        defaultColDef={this.state.defaultColDef}
-                                        rowData={this.props.positionRows}
-                                        //onGridReady={params => params.api.sizeColumnsToFit()}
-                                        deltaRowDataMode={true}
-                                        getRowNodeId={data => data.__row_id__} 
-                                        />
+                              ref="agGrid"
+                              modules={this.state.modules}
+                              columnDefs={this.state.columnDefsPosition}
+                              defaultColDef={this.state.defaultColDefPosition}
+                              rowData={this.props.positionRows}
+                              //onGridReady={params => params.api.sizeColumnsToFit()}
+                              deltaRowDataMode={true}
+                              getRowNodeId={data => data.__row_id__} 
+                              />
+                            </div>
+                          </td>
+                          <td colSpan="3" >
+                            <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                            <AgGridReact
+                              ref="agGrid"
+                              modules={this.state.modules}
+                              columnDefs={this.state.columnDefsOrder}
+                              defaultColDef={this.state.defaultColDefOrder}
+                              rowData={this.props.orderRows}
+                              //onGridReady={params => params.api.sizeColumnsToFit()}
+                              deltaRowDataMode={true}
+                              getRowNodeId={data => data.__row_id__} 
+                              />
                             </div>
                           </td>
                         </tr>
@@ -378,7 +410,46 @@ TradeSummary.contextTypes = {
   store: PropTypes.object                         // must be supplied when using redux with AgGridReact
 };
 
-const mapStateToProps = (state) => ({positionRows: state.positionRows});
+const mapStateToProps = (state) => ({positionRows: state.positionRows, orderRows: state.orderRows});
 const mapDispatchToProps = (dispatch) => ({actions: bindActionCreators(actions, dispatch)});
 
 export default connect(mapStateToProps, mapDispatchToProps)(TradeSummary);
+
+/*
+ORder
+
+avgPx:null
+clOrdID:""
+clOrdLinkID:""
+contingencyType:""
+cumQty:0
+currency:"USD"
+displayQty:null
+exDestination:"XBME"
+execInst:""
+leavesQty:1
+multiLegReportingType:"SingleSecurity"
+pegOffsetValue:null
+pegPriceType:""
+simpleCumQty:null
+simpleLeavesQty:null
+simpleOrderQty:null
+stopPx:null
+account:271696
+orderID:"4d4f01f8-a7e6-265e-f7d3-7c898906f858"
+orderQty:1
+ordRejReason:"" 
+ordStatus:"New"
+ordType:"Limit"
+price:8867.5
+settlCurrency:"XBt"
+side:"Buy"
+symbol:"XBTUSD"
+text:"Submission from testnet.bitmex.com"
+timeInForce:"GoodTillCancel"
+timestamp:"2020-01-18T03:29:28.896Z"
+transactTime:"2020-01-18T03:29:28.896Z"
+triggered:""
+workingIndicator:true
+
+*/

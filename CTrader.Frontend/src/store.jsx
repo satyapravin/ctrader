@@ -5,6 +5,8 @@ import logger from "./middleware/logger.jsx";
 
 const initialState = { 
   positionRows: [
+  ],
+  orderRows: [
   ]
 };
 
