@@ -20,12 +20,12 @@ class OrderGrid extends Component {
     }
     let orderData = data.data[0];
 
-    let askOrders = orderData.asks.map(ask => ({
+    let askOrders = orderData.asks.slice(0,5).map(ask => ({
       price: ask[0],
       quantity: ask[1]
     }));
 
-    let bidOrders = orderData.bids.map(bid => ({
+    let bidOrders = orderData.bids.slice(0,5).map(bid => ({
       price: bid[0],
       quantity: bid[1]
     }));
@@ -41,8 +41,7 @@ class OrderGrid extends Component {
       <div>
       <Websocket
         url={'wss://www.bitmex.com/realtime?subscribe=orderBook10:' + this.props.instrument}
-        onMessage={this.handleData.bind(this)}
-        />
+        onMessage={this.handleData.bind(this)} />
         <h5 className="instrument">{this.props.instrument}</h5>
         <OrderBook askOrders={this.state.askOrders} bidOrders={this.state.bidOrders} />
       </div>

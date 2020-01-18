@@ -40,13 +40,13 @@ export default function positionReducer(state = {}, action) {
         };
     }
     case types.DELETEPOSITION:
-        payload.deletedPositionRow.__row_id__ = payload.deletedPositionRow.account + "~" + payload.deletedPositionRow.symbol;
+        payload.deletedPositionRow.__row_id__ = payload.deletedPositionRow.orderID;
         return {
         positionRows: deletePositionRow(state.positionRows, payload.deletedPositionRow.__row_id__),
         orderRows: state.orderRows
       };
     case types.ADDORDER:
-        payload.newOrderRow.__row_id__ = payload.newOrderRow.account + "~" + payload.newOrderRow.symbol;
+        payload.newOrderRow.__row_id__ = payload.newOrderRow.orderID;
       return {
         orderRows: [
           ...state.orderRows,
@@ -55,7 +55,7 @@ export default function positionReducer(state = {}, action) {
         positionRows: state.positionRows
       };
     case types.UPDATEORDER:
-      payload.updatedOrderRow.__row_id__ = payload.updatedOrderRow.account + "~" + payload.updatedOrderRow.symbol;
+      payload.updatedOrderRow.__row_id__ = payload.updatedOrderRow.orderID;
       var existing_row = state.orderRows.filter(p => p.__row_id__ === payload.updatedOrderRow.__row_id__);
       if(existing_row.length >= 1) {
         var previous_row = {};

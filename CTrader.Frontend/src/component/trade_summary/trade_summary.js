@@ -34,24 +34,31 @@ class TradeSummary extends Component {
       modules: AllModules,
       defaultColDefPosition: { sortable: true, filter: true, resizable: true },
       columnDefsPosition: [
-        { headerName: "Account", field: "account", width: 100},
-        { headerName: "Symbol", field: "symbol", width: 100},
-        { headerName: "Qty", field: "currentQty", width: 100},
-        { headerName: "Value Last", field: "lastValue", width: 100}
+        { headerName: "Sym", field: "symbol", width: 75},
+        { headerName: "Acc", field: "account", width: 75},
+        { headerName: "Size", field: "currentQty", width: 75},
+        { headerName: "Value", field: "homeNotional", width: 100},
+        { headerName: "Entry Price", field: "avgEntryPrice", width: 100},
+        { headerName: "Mark Price", field: "markPrice", width: 100},
+        { headerName: "Liq. Price", field: "liquidationPrice", width: 100},
+        { headerName: "Margin", field: "marginCallPrice", width: 100},
+        { headerName: "UnRealised Pnl", field: "unrealisedPnl", width: 100},
+        { headerName: "ROE%", field: "unrealisedRoePcnt", width: 100},
+        { headerName: "RealisedPnl", field: "realisedPnl", width: 100}
       ],
       defaultColDefOrder: { sortable: true, filter: true, resizable: true },
       columnDefsOrder: [
-        { headerName: "Status", field: "ordStatus", width: 100},
-        { headerName: "Account", field: "account", width: 100},
-        { headerName: "Side", field: "side", width: 100},
-        { headerName: "Symbol", field: "symbol", width: 100},
-        { headerName: "Qty", field: "orderQty", width: 100},
-        { headerName: "OrdType", field: "ordType", width: 100},
-        { headerName: "Price", field: "price", width: 100},
-        { headerName: "Settlement Currency", field: "settlCurrency", width: 100},
-        { headerName: "TimeInForce", field: "timeInForce", width: 100},
-        { headerName: "Timestamp", field: "timestamp", width: 100},
-        { headerName: "TransactionTime", field: "transactTime", width: 100},
+        { headerName: "Status", field: "ordStatus", width: 80},
+        { headerName: "Acc", field: "account", width: 75},
+        { headerName: "Side", field: "side", width: 75},
+        { headerName: "Sym", field: "symbol", width: 75},
+        { headerName: "Qty", field: "orderQty", width: 65},
+        { headerName: "OrdType", field: "ordType", width: 90},
+        { headerName: "Price", field: "price", width: 90},
+        { headerName: "Curr Settlement", field: "settlCurrency", width: 100},
+        { headerName: "TimeInForce", field: "timeInForce", width: 150},
+        { headerName: "Timestamp", field: "timestamp", width: 170},
+        { headerName: "TransTime", field: "transactTime", width: 170},
         { headerName: "Working Ind", field: "workingIndicator", width: 100}
       ],
       rowData: [],
@@ -125,8 +132,8 @@ class TradeSummary extends Component {
         const signature =  hmacSha256(secret,message);
         const signat =  signature.toString();
         var _updateConnection = {"op" :"authKeyExpires", "args": [APIKey, expires, "39c2bfba7fb3f90b61dfce487473110589eb75442b8df2cbccea3a38a623897f"]};
-        const authMessage = JSON.stringify(_updateConnection)
-      ws.send(authMessage);
+        const authMessage = JSON.stringify(_updateConnection);
+        ws.send(authMessage);
       }
     };
 
@@ -158,96 +165,7 @@ class TradeSummary extends Component {
       } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
         console.log("Subscription successful for " + row.request.args);
         //ws.send(_Data);
-      } else if (row.__MESSAGE__ === 'trader') {
-        //console.log("__MESSAGE__ = trader - " + row.trader_id + " " + row.TAG + " " + row.acct);
-        if (this.mounted) {
-          try {
-            //console.log("__MESSAGE__ = trader - " + row.trader_id + " " + row.TAG + " " + row.acct);
-            if (!this.isEmpty(row.trader_id) && !this.isEmpty(row.TAG) && !this.isEmpty(row.acct)) {
-              //console.log("__MESSAGE__ = trader - " + row.trader_id.toString() + " " + row.TAG.toString() + " " + row.acct.toString());
-              this.props.actions.updateTraderRow(row);
-            }
-          } catch (error) {
-            console.log('error:%o ', error);
-            //console.log('trader-row:%o ', row);
-          }
-        }
-      } else if (row.__MESSAGE__ === 'update_trader_status') {
-        //console.log('update_trader_status');
-        if (this.mounted) {
-          this.props.actions.updateTraderRow(row);
-        }
-      } else if (row.__MESSAGE__ === 'delete_trader') {
-        //console.log('delete_trader<row.trader_id>:%s', row.trader_id);
-        if (this.mounted) {
-          this.props.actions.deleteTraderRow(row);
-        }
-      } else if (row.__MESSAGE__ === 'snapshotLogs') {
-        if (this.mounted) {
-          var tempLogs = JSON.parse(row.Logs);
-          let snapshotLogs_dictionary_key = "";
-          for (var index = 0; index < tempLogs.length; index++) {
-            snapshotLogs_dictionary_key = tempLogs[index].trader_id.toString().trim() + "~" + tempLogs[index].acct.toString().trim() + "~" + tempLogs[index].TAG.toString().trim();
-            logsDictionary[snapshotLogs_dictionary_key] = tempLogs[index];
-            logsList.push(tempLogs[index]);
-          }
-          var tempLogsList = this.copyData(logsDictionary);
-          var _tempLogsErrorPanicList = tempLogsList.filter(p => p.level === "ERROR" || p.level === "PANIC");
-          Session.setItem("ergonomy", JSON.stringify(_tempLogsErrorPanicList));
-          this.setState({ logsDictionary: logsDictionary, logsList: tempLogsList, rowDataLog: tempLogsList });
-        }
-      }
-      else if (row.__MESSAGE__ === 'log') {
-        //console.log('%o', logsList);
-        console.log('row.__MESSAGE__:%s | logsList: %o',row.__MESSAGE__, logsList);
-        if (this.mounted) {
-          try {
-            if (!this.isEmpty(row.trader_id) && !this.isEmpty(row.TAG) && !this.isEmpty(row.acct)) {
-              let log_dictionary_key = row.trader_id.toString().trim() + "~" + row.acct.toString().trim() + "~" + row.TAG.toString().trim();
-              var _tempLogsList = this.updateLogsFields(logsDictionary, row, log_dictionary_key);
-              var _tempErrorPanicList = _tempLogsList.filter(p => p.level === "ERROR" || p.level === "PANIC");
-              Session.setItem("ergonomy", JSON.stringify(_tempErrorPanicList));
-              this.setState({ logsDictionary: logsDictionary, logsList: _tempLogsList });
-              if (this.refs.agGrid != null && this.refs.agLogGrid != null) {
-                this.refs.agLogGrid.api.setRowData(_tempLogsList);
-                //this.refs.agGrid.api.setRowData(tradersList);
-              }
-            }
-          } catch (error) {
-            console.log('error:%o', error);
-            console.log('log-row:%o', error);
-          }
-        }
-      }
-      else if (row.__MESSAGE__ === 'tradersCached') {
-        if (this.mounted) {
-          var tempCachedTraders = JSON.parse(row.tradersCached);
-          let tradersCached_dictionary_key = "";
-          for (var iCachedIndex = 0; iCachedIndex < tempCachedTraders.length; iCachedIndex++) {
-            tradersCached_dictionary_key = tempCachedTraders[iCachedIndex].trader_id.toString().trim() + "~" + tempCachedTraders[iCachedIndex].acct.toString().trim() + "~" + tempCachedTraders[iCachedIndex].TAG.toString().trim();
-            tradersDictionary[tradersCached_dictionary_key] = tempCachedTraders[iCachedIndex];
-            tradersList.push(tempCachedTraders[iCachedIndex]);
-          }
-          var tempCachedTradersList = this.copyData(tradersDictionary);
-          this.setState({ tradersDictionary: tradersDictionary, tradersList: tempCachedTradersList, rowData: tempCachedTradersList });
-          //this.refs.agGrid.api.updateRowData({add: tempTradersList});
-        }
-      }
-      else if (row.__MESSAGE__ === 'logsCached') {
-        if (this.mounted) {
-          var tempCachedLogs = JSON.parse(row.logsCached);
-          let logsCached_dictionary_key = "";
-          for (var iCachedLogIndex = 0; iCachedLogIndex < tempCachedLogs.length; iCachedLogIndex++) {
-            logsCached_dictionary_key = tempCachedLogs[iCachedIndex].trader_id.toString().trim() + "~" + tempCachedLogs[iCachedIndex].acct.toString().trim() + "~" + tempCachedLogs[iCachedIndex].TAG.toString().trim();
-            logsDictionary[logsCached_dictionary_key] = tempCachedLogs[iCachedLogIndex];
-            logsList.push(tempCachedLogs[iCachedLogIndex]);
-          }
-          var tempCachedLogsList = this.copyData(logsDictionary);
-          this.setState({ logsDictionary: logsDictionary, logsList: tempCachedLogsList, rowDataLog: tempCachedLogsList });
-          //this.refs.agGrid.api.updateRowData({add: tempTradersList});
-        }
-      }
-      //console.log(tradersList);
+      } 
     };
 
     ws.onerror = (e) => {
@@ -273,9 +191,10 @@ class TradeSummary extends Component {
   };
 
   
-  isEmpty(value){
+  isEmpty(value) {
     return (value == null || value.length === 0);
   }
+
   /**<getData>**************************************************************************************************/
   getData(command, payload) {
     //Copy the values from the payload object, if one was supplied
@@ -318,6 +237,15 @@ class TradeSummary extends Component {
               <div className="col-xs-12 col-sm-12 col-md-12 col-lg-12">
                 <div className="form-group">
                     <table>
+                      <thead>
+                        <tr>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th style={{"white-space": "nowrap"}}></th>
+                        </tr>
+                      </thead>
                       <tbody>
                         <tr>
                           <td><OrderGrid instrument="XBTUSD"/></td>
@@ -358,8 +286,8 @@ class TradeSummary extends Component {
                             <div title="Start" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.start}><FontAwesomeIcon icon={faPlayCircle} /></div>
                           </td>
                         </tr>
-                        <tr>
-                        <td >
+                        </tbody>
+                        </table> 
                             <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                             <AgGridReact
                               ref="agGrid"
@@ -372,8 +300,7 @@ class TradeSummary extends Component {
                               getRowNodeId={data => data.__row_id__} 
                               />
                             </div>
-                          </td>
-                          <td colSpan="3" >
+                          
                             <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                             <AgGridReact
                               ref="agGrid"
@@ -386,22 +313,16 @@ class TradeSummary extends Component {
                               getRowNodeId={data => data.__row_id__} 
                               />
                             </div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
                 </div>
               </div>
             </div>
           </div>
-          <div id="home-display-data">
-             </div>
+          <div id="home-display-data"> </div>
         </div>
       </div>
     );
   }
 }
-
 
 //const mapStateToProps = (state) => ({traderRows: state.traderRows});
 //const mapDispatchToProps = (dispatch) => ({actions: bindActionCreators(actions, dispatch)});
@@ -412,12 +333,10 @@ TradeSummary.contextTypes = {
 
 const mapStateToProps = (state) => ({positionRows: state.positionRows, orderRows: state.orderRows});
 const mapDispatchToProps = (dispatch) => ({actions: bindActionCreators(actions, dispatch)});
-
 export default connect(mapStateToProps, mapDispatchToProps)(TradeSummary);
 
-/*
-ORder
-
+/* Order
+------------------------------------------------
 avgPx:null
 clOrdID:""
 clOrdLinkID:""
@@ -451,5 +370,98 @@ timestamp:"2020-01-18T03:29:28.896Z"
 transactTime:"2020-01-18T03:29:28.896Z"
 triggered:""
 workingIndicator:true
-
+------------------------------------------------
+Position
+------------------------------------------------
+account:271696
+avgCostPrice:8950
+avgEntryPrice:8950
+bankruptPrice:9440
+breakEvenPrice:8918
+commission:0.00075
+crossMargin:true
+currency:"XBt"
+currentComm:20877
+currentCost:7508152
+currentQty:-672
+currentTimestamp:"2020-01-18T08:29:00.326Z"
+deleveragePercentile:1
+execBuyCost:0
+execBuyQty:0
+execComm:0
+execCost:0
+execQty:0
+execSellCost:0
+execSellQty:0
+foreignNotional:672
+grossExecCost:0
+grossOpenCost:0
+grossOpenPremium:0
+homeNotional:-0.07600992
+indicativeTax:0
+indicativeTaxRate:null
+initMargin:0
+initMarginReq:0.01
+isOpen:true
+lastPrice:8840.76
+lastValue:7600992
+leverage:100
+liquidationPrice:9381.5
+longBankrupt:0
+maintMargin:173523
+maintMarginReq:0.005
+marginCallPrice:9381.5
+markPrice:8840.76
+markValue:7600992
+openingComm:20877
+openingCost:7508152
+openingQty:-672
+openingTimestamp:"2020-01-18T08:00:00.000Z"
+openOrderBuyCost:-23634
+openOrderBuyPremium:0
+openOrderBuyQty:2
+openOrderSellCost:0
+openOrderSellPremium:0
+openOrderSellQty:0
+posAllowance:0
+posComm:5704
+posCost:7508256
+posCost2:7529104
+posCross:20848
+posInit:75083
+posLoss:20848
+posMaint:50198
+posMargin:80787
+posState:""
+prevClosePrice:8835.93
+prevRealisedPnl:0
+prevUnrealisedPnl:0
+quoteCurrency:"USD"
+realisedCost:-104
+realisedGrossPnl:104
+realisedPnl:-20773
+realisedTax:0
+rebalancedPnl:-5639
+riskLimit:20000000000
+riskValue:7600992
+sessionMargin:0
+shortBankrupt:0
+simpleCost:null
+simplePnl:null
+simplePnlPcnt:null
+simpleQty:null
+simpleValue:null
+symbol:"XBTUSD"
+targetExcessMargin:0
+taxableMargin:0
+taxBase:0
+timestamp:"2020-01-18T08:29:00.326Z"
+underlying:"XBT"
+unrealisedCost:7508256
+unrealisedGrossPnl:92736
+unrealisedPnl:92736
+unrealisedPnlPcnt:0.0124
+unrealisedRoePcnt:1.2351
+unrealisedTax:0
+varMargin:0
 */
