@@ -141,30 +141,30 @@ class TradeSummary extends Component {
       console.log(e) ;
       const { user } = this.state;
       let row = JSON.parse(e.data);
-      //console.log("New Message - " + row.Traders);
 
-      const { tradersList, logsList, tradersDictionary, logsDictionary } = this.state;
-      if (row && row.table && row.table === 'order') {
-        //console.log('snapshotTraders:%o', row.Traders);
+      if (row && row.table) {
         if (this.mounted) {
-          for (var index = 0; index < row.data.length; index++) {
-            this.props.actions.updateOrderRow(row.data[index]);
+          if(row.table === 'order') {
+            for (var index = 0; index < row.data.length; index++) {
+              this.props.actions.updateOrderRow(row.data[index]);
+            }
+          } else if(row.table === 'position') {
+            for (var index = 0; index < row.data.length; index++) {
+              this.props.actions.updatePositionRow(row.data[index]);
+            }
+          } else if(row.table === 'instrument') {
+            for (var index = 0; index < row.data.length; index++) {
+              this.props.actions.updateInstrumentRow(row.data[index]);
+            }
           }
-        }
-      } else if (row && row.table && row.table === 'position') {
-        //console.log('snapshotTraders:%o', row.Traders);
-        if (this.mounted) {
-          for (var index = 0; index < row.data.length; index++) {
-            this.props.actions.updatePositionRow(row.data[index]);
-          }
-        }
+        } 
       } else if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
         console.log("Authentication successful!")
-        var _Data = {"op" : "subscribe", "args":["position", "order"]};
+        var _Data = {"op" : "subscribe",
+         "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
         ws.send(JSON.stringify(_Data));
       } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
         console.log("Subscription successful for " + row.request.args);
-        //ws.send(_Data);
       } 
     };
 
@@ -190,7 +190,6 @@ class TradeSummary extends Component {
     if (!ws || ws.readyState === WebSocket.CLOSED) this.connectServer();
   };
 
-  
   isEmpty(value) {
     return (value == null || value.length === 0);
   }
@@ -210,19 +209,15 @@ class TradeSummary extends Component {
   }
   /**</getData>*************************************************************************************************/
 
-
   start() {
     var result = consoleService.start();
   }
-
   stop() {
     var result = consoleService.stop();
   }
-
   rebalance() {
     var result = consoleService.rebalance();
   }
-
   render() {
     return this.getTemplate();
   }
@@ -294,7 +289,7 @@ class TradeSummary extends Component {
                               modules={this.state.modules}
                               columnDefs={this.state.columnDefsPosition}
                               defaultColDef={this.state.defaultColDefPosition}
-                              rowData={this.props.positionRows}
+                              rowData={this.props.data.positionRows}
                               //onGridReady={params => params.api.sizeColumnsToFit()}
                               deltaRowDataMode={true}
                               getRowNodeId={data => data.__row_id__} 
@@ -307,7 +302,7 @@ class TradeSummary extends Component {
                               modules={this.state.modules}
                               columnDefs={this.state.columnDefsOrder}
                               defaultColDef={this.state.defaultColDefOrder}
-                              rowData={this.props.orderRows}
+                              rowData={this.props.data.orderRows}
                               //onGridReady={params => params.api.sizeColumnsToFit()}
                               deltaRowDataMode={true}
                               getRowNodeId={data => data.__row_id__} 
@@ -331,7 +326,7 @@ TradeSummary.contextTypes = {
   store: PropTypes.object                         // must be supplied when using redux with AgGridReact
 };
 
-const mapStateToProps = (state) => ({positionRows: state.positionRows, orderRows: state.orderRows});
+const mapStateToProps = (state) => ({data: state.data});
 const mapDispatchToProps = (dispatch) => ({actions: bindActionCreators(actions, dispatch)});
 export default connect(mapStateToProps, mapDispatchToProps)(TradeSummary);
 
@@ -464,4 +459,111 @@ unrealisedPnlPcnt:0.0124
 unrealisedRoePcnt:1.2351
 unrealisedTax:0
 varMargin:0
+
+--------------------------------------
+instrument
+--------------------------------------
+askPrice:null
+bankruptLimitDownPrice:null
+bankruptLimitUpPrice:null
+bidPrice:null
+buyLeg:""
+calcInterval:null
+capped:false
+closingTimestamp:null
+deleverage:false
+expiry:null
+fairBasis:null
+fairBasisRate:null
+fairMethod:""
+fairPrice:null
+foreignNotional24h:null
+front:null
+fundingBaseSymbol:""
+fundingInterval:null
+fundingPremiumSymbol:""
+fundingQuoteSymbol:""
+fundingRate:null
+fundingTimestamp:null
+hasLiquidity:false
+highPrice:null
+homeNotional24h:null
+impactAskPrice:null
+impactBidPrice:null
+impactMidPrice:null
+indicativeFundingRate:null
+indicativeSettlePrice:null
+indicativeTaxRate:null
+initMargin:null
+insuranceFee:null
+inverseLeg:""
+isInverse:false
+isQuanto:false
+lastChangePcnt:0.0169
+lastPrice:9103.96
+lastPriceProtected:null
+lastTickDirection:"PlusTick"
+limit:null
+limitDownPrice:null
+limitUpPrice:null
+listing:null
+lotSize:null
+lowPrice:null
+maintMargin:null
+makerFee:null
+markMethod:"LastPrice"
+markPrice:9103.96
+maxOrderQty:null
+maxPrice:null
+midPrice:null
+multiplier:null
+openingTimestamp:null
+openInterest:null
+openValue:0
+optionMultiplier:null
+optionStrikePcnt:null
+optionStrikePrice:null
+optionStrikeRound:null
+optionUnderlyingPrice:null
+positionCurrency:""
+prevClosePrice:null
+prevPrice24h:8952.6
+prevTotalTurnover:null
+prevTotalVolume:null
+publishInterval:"2000-01-01T00:01:00.000Z"
+publishTime:null
+quoteCurrency:"USD"
+quoteToSettleMultiplier:null
+rebalanceInterval:null
+rebalanceTimestamp:null
+reference:"BMI"
+referenceSymbol:".BXBT"
+relistInterval:null
+riskLimit:null
+riskStep:null
+rootSymbol:"XBT"
+sellLeg:""
+sessionInterval:null
+settlCurrency:""
+settle:null
+settledPrice:null
+settlementFee:null
+state:"Unlisted"
+symbol:".BXBT"
+takerFee:null
+taxed:false
+tickSize:0.01
+timestamp:"2020-01-19T01:26:55.000Z"
+totalTurnover:null
+totalVolume:null
+turnover:null
+turnover24h:null
+typ:"MRCXXX"
+underlying:"XBT"
+underlyingSymbol:"XBT="
+underlyingToPositionMultiplier:null
+underlyingToSettleMultiplier:null
+volume:null
+volume24h:null
+vwap:null
 */
