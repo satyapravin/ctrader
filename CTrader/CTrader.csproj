@@ -39,6 +39,15 @@
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Net.Http.Formatting, Version=5.2.7.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Client.5.2.7\lib\net45\System.Net.Http.Formatting.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Http, Version=5.2.7.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Core.5.2.7\lib\net45\System.Web.Http.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Http.SelfHost, Version=5.2.7.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.SelfHost.5.2.7\lib\net45\System.Web.Http.SelfHost.dll</HintPath>
+    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -61,6 +70,14 @@
     <ProjectReference Include="..\Bitmex.NET\Bitmex.NET.csproj">
       <Project>{fd655e11-0586-414e-9f53-71e86f27e113}</Project>
       <Name>Bitmex.NET</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CTrader.Interfaces\CTrader.Interfaces.csproj">
+      <Project>{5e5bdae7-b4c6-491c-b802-1adfaa617b8b}</Project>
+      <Name>CTrader.Interfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CTrader.WebAPI\CTrader.WebAPI.csproj">
+      <Project>{bc065d62-bf9a-4e65-bda2-d268cb79fc0c}</Project>
+      <Name>CTrader.WebAPI</Name>
     </ProjectReference>
     <ProjectReference Include="..\ExchangeService\ExchangeService.csproj">
       <Project>{aa5400cd-72d2-4de9-ae14-dee5dfd05d81}</Project>

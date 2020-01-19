@@ -32,6 +32,13 @@ class TradeSummary extends Component {
 
     this.state = {
       modules: AllModules,
+      defaultColDefInstrument: { sortable: true, filter: true, resizable: true },
+      columnDefsInstrument: [
+        { headerName: "Sym", field: "symbol", width: 75},
+        { headerName: "LastPrice", field: "lastPrice", width: 75},
+        { headerName: "Mark Price", field: "markPrice", width: 100},
+        { headerName: "Timestamp", field: "timestamp", width: 100},
+      ],
       defaultColDefPosition: { sortable: true, filter: true, resizable: true },
       columnDefsPosition: [
         { headerName: "Sym", field: "symbol", width: 75},
@@ -231,6 +238,7 @@ class TradeSummary extends Component {
             <div className="row">
               <div className="col-xs-12 col-sm-12 col-md-12 col-lg-12">
                 <div className="form-group">
+                  <span>
                     <table>
                       <thead>
                         <tr>
@@ -283,6 +291,23 @@ class TradeSummary extends Component {
                         </tr>
                         </tbody>
                         </table> 
+                        </span>
+                        <span>
+                          <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                            <AgGridReact
+                              ref="agGrid"
+                              modules={this.state.modules}
+                              columnDefs={this.state.columnDefsInstrument}
+                              defaultColDef={this.state.defaultColDefInstrument}
+                              rowData={this.props.data.instrumentRows}
+                              //onGridReady={params => params.api.sizeColumnsToFit()}
+                              deltaRowDataMode={true}
+                              getRowNodeId={data => data.__row_id__} 
+                              />
+                          </div>
+                        </span>
+
+
                             <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                             <AgGridReact
                               ref="agGrid"
