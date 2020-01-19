@@ -29,8 +29,17 @@ class TradeSummary extends Component {
     super(props);
     this.mounted = false;
     this.timeout = 250;
-
     this.state = {
+      strategySummary : {
+          Environment: "",
+          State: "",
+          WalletBalance: 0.0,
+          AvailableMargin: 0.0,
+          RealizedPnl: 0.0,
+          UnrealizedPnl: 0.0,
+          Leverage: 0.0,
+          UsedMargin: 0.0
+        },
       modules: AllModules,
       defaultColDefInstrument: { sortable: true, filter: true, resizable: true },
       columnDefsInstrument: [
@@ -103,6 +112,10 @@ class TradeSummary extends Component {
   componentDidMount() {
     this.mounted = true;
     this.connectServer();
+    this.intervalID = setInterval(
+      () => this.tick(),
+      5000
+    );
   }
 
   /**</componentWillUnmount>************************************************************************************/
@@ -114,9 +127,20 @@ class TradeSummary extends Component {
         ws.close();
         this.setState({ ws: ws });
       }
+      clearInterval(this.intervalID);
     }
   }
-
+  tick() {
+    var data = consoleService.GetStrategySummary().then(data => { 
+    this.setState({strategySummary : data})
+    },
+      error => {
+        //this.error(error.toString());
+        console.log(error.toString());
+        //this.handleClose();
+      }
+    );
+  }
   /**<connectServer>********************************************************************************************/
   connectServer = () => {
     var ws = new WebSocket(config.wsUrl);
@@ -145,7 +169,7 @@ class TradeSummary extends Component {
     };
 
     ws.onmessage = e => {
-      console.log(e) ;
+      //console.log(e) ;
       const { user } = this.state;
       let row = JSON.parse(e.data);
 
@@ -185,7 +209,6 @@ class TradeSummary extends Component {
     };
     ws.onclose = (e) => {
       if (ws != null) { ws.close(); }
-      //console.log("completed on close message...");
     };
   };
   /**</connectServer>*******************************************************************************************/
@@ -257,25 +280,41 @@ class TradeSummary extends Component {
                           <td>
                             <table>
                               <tbody>
-                              <tr>
-                                  <td>Total</td>
-                                  <td>{this.state.total}</td>
+                                <tr>
+                                  <td>Environment</td>
+                                  <td>{this.state.strategySummary.Environment}</td>
                                 </tr>
                                 <tr>
-                                  <td>Available</td>
-                                  <td>{this.state.total}</td>
+                                  <td>State</td>
+                                  <td>{this.state.strategySummary.State}</td>
                                 </tr>
                                 <tr>
-                                  <td>Fair Price</td>
-                                  <td>{this.state.total}</td>
+                                  <td>WalletBalance</td>
+                                  <td>{this.state.strategySummary.WalletBalance}</td>
                                 </tr>
                                 <tr>
                                   <td>Target</td>
-                                  <td>{this.state.total}</td>
+                                  <td>{this.state.strategySummary.total}</td>
                                 </tr>
                                 <tr>
-                                  <td>Time Left</td>
-                                  <td>{this.state.total}</td>
+                                  <td>AvailableMargin</td>
+                                  <td>{this.state.strategySummary.AvailableMargin}</td>
+                                </tr>
+                                <tr>
+                                  <td>RealizedPnl</td>
+                                  <td>{this.state.strategySummary.RealizedPnl}</td>
+                                </tr>
+                                <tr>
+                                  <td>UnrealizedPnl</td>
+                                  <td>{this.state.strategySummary.UnrealizedPnl}</td>
+                                </tr>
+                                <tr>
+                                  <td>Leverage</td>
+                                  <td>{this.state.strategySummary.Leverage}</td>
+                                </tr>
+                                <tr>
+                                  <td>UsedMargin</td>
+                                  <td>{this.state.strategySummary.UsedMargin}</td>
                                 </tr>
                               </tbody>
                             </table>

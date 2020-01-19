@@ -1,7 +1,10 @@
-﻿using System.Web.Http;
+﻿using CTrader.Interfaces;
+using System.Web.Http;
+using System.Web.Http.Cors;
 
 namespace CTrader.WebAPI
 {
+    [EnableCors(origins: "*", headers: "*", methods: "*")]
     public class ConsoleController : ApiController
     {
         [HttpGet]
@@ -30,18 +33,16 @@ namespace CTrader.WebAPI
 
         [HttpGet]
         [ActionName("getapikey")]
-        public bool GetAPIKey()
+        public string GetAPIKey()
         {
-            WebAPIStartup.GetAPIKey();
-            return true;
+            return WebAPIStartup.GetAPIKey();
         }
 
         [HttpGet]
         [ActionName("getapisecret")]
-        public bool GetAPISecret()
+        public string GetAPISecret()
         {
-            WebAPIStartup.GetAPISecret();
-            return true;
+            return WebAPIStartup.GetAPISecret();
         }
 
         [HttpGet]
@@ -49,6 +50,13 @@ namespace CTrader.WebAPI
         public string GetSignature(int timeExpires)
         {
             return WebAPIStartup.GetSignature(timeExpires);
+        }
+
+        [HttpGet]
+        [ActionName("getstrategysummary")]
+        public IStrategySummary GetStrategySummary()
+        {
+            return WebAPIStartup.GetStrategySummary();
         }
     }
 }
