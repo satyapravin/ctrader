@@ -54,5 +54,23 @@ export const actions = {
       type: types.DELETEINSTRUMENT,
       payload: {deletedInstrumentRow}
     };
+  },
+  newLogRow(newLogRow) {
+    return {
+      type: types.ADDLOG,
+      payload: {newLogRow}
+    };
+  },
+  updateLogRow(updatedLogRow) {
+    return {
+      type: types.UPDATELOG,
+      payload: {updatedLogRow}
+    };
+  },
+  deleteLogRow(deletedLogRow) {
+    return {
+      type: types.DELETELOG,
+      payload: {deletedLogRow}
+    };
   }
 };

@@ -14,7 +14,8 @@ import { AllModules } from "@ag-grid-enterprise/all-modules";
 import { Session } from './../../helper/session';
 import { connect} from "react-redux";
 import { bindActionCreators } from 'redux';
-import { actions } from '../../reducers/positionRowActions'
+import { actions } from '../../reducers/actions'
+import LogView from '../logview'
 import * as PropTypes from "prop-types"; 
 
 class TradeSummary extends Component {
@@ -23,20 +24,21 @@ class TradeSummary extends Component {
     consoleService.GetAPIKey().then(data => { 
         this.setState({APIKey : data})
       },
-      error => { console.log(error.toString()); }
+      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetAPIKey"); }
     );
     consoleService.GetAPISecret().then(data => { 
         this.setState({APISecret : data})
       }, 
-      error => { console.log(error.toString()); }
+      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetAPISecret"); }
     );
     
     consoleService.GetSignature(this.state.APIExpires).then(data => { 
         this.setState({APISignature : data})
       },
-      error => { console.log(error.toString()); }
+      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetSignature"); }
     );
   }
+
   constructor(props) {
     super(props);
     this.mounted = false;
@@ -107,23 +109,27 @@ class TradeSummary extends Component {
     this.rebalance = this.rebalance.bind(this);
     this.refresh = this.refresh.bind(this);
     this.refreshRequest = this.refreshRequest.bind(this);
+    this.addlog = this.addlog.bind(this);
+  }
+
+  addlog(message, type, source) {
+    const timestamp = Date.now(); 
+    this.props.actions.updateLogRow({ "message": message, "type": type, "source": source, "timestamp": timestamp });
   }
 
   refresh() {
     window.location.reload();
   }
   
-  /**<refreshRequest>*******************************************************************************************/
   refreshRequest() {
     try {
       const { ws } = this.state;
       var refreshRequestData = this.getData("refresh_request");
       ws.send(refreshRequestData);
     } catch (error) {
-      console.log('error:%o', error);
+      this.addlog(error, "error", "TradeSummary.refreshRequest");
     }
   }
-  /**</refreshRequest>******************************************************************************************/
 
   componentDidMount() {
     this.mounted = true;
@@ -134,11 +140,10 @@ class TradeSummary extends Component {
     );
   }
 
-  /**</componentWillUnmount>************************************************************************************/
   componentWillUnmount() {
     if (this.mounted) {
       const { ws } = this.state;
-      console.log('Trader : componentWillUnmount');
+      this.addlog('Trader : componentWillUnmount', "info", "TradeSummary.componentWillUnmount");
       if (ws !== null && ws.readyState !== WebSocket.CLOSED) {
         ws.close();
         this.setState({ ws: ws });
@@ -147,22 +152,21 @@ class TradeSummary extends Component {
     }
   }
   tick() {
-    var data = consoleService.GetStrategySummary().then(data => { 
-    this.setState({strategySummary : data})
-    },
+    consoleService.GetStrategySummary().then(data => { 
+        this.setState({strategySummary : data})
+      },
       error => {
-        console.log(error.toString());
+        this.addlog(error.toString(), "error", "TradeSummary.tick");
       }
     );
   }
-  /**<connectServer>********************************************************************************************/
+
   connectServer = () => {
     var ws = new WebSocket(config.wsUrl);
     var connectInterval;
 
     ws.onopen = () => {
-      console.log("Connected...");
-      const { user } = this.state;
+      this.addlog("Connected...", "info", "TradeSummary.connectServer.ws.onopen");
       this.timeout = 250;
       clearTimeout(connectInterval);
 
@@ -175,53 +179,49 @@ class TradeSummary extends Component {
     };
 
     ws.onmessage = e => {
-      const { user } = this.state;
       let row = JSON.parse(e.data);
 
       if (row && row.table) {
         if (this.mounted) {
           if(row.table === 'order') {
-            for (var index = 0; index < row.data.length; index++) {
+            for (let index = 0; index < row.data.length; index++) {
               this.props.actions.updateOrderRow(row.data[index]);
             }
           } else if(row.table === 'position') {
-            for (var index = 0; index < row.data.length; index++) {
+            for (let index = 0; index < row.data.length; index++) {
               this.props.actions.updatePositionRow(row.data[index]);
             }
           } else if(row.table === 'instrument') {
-            for (var index = 0; index < row.data.length; index++) {
+            for (let index = 0; index < row.data.length; index++) {
               this.props.actions.updateInstrumentRow(row.data[index]);
             }
           }
         } 
       } else if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
-        console.log("Authentication successful!")
-        var _Data = {"op" : "subscribe",
-         "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
+        this.addlog("Authentication successful!", "info", "TradeSummary.connectServer.ws.onmessage")
+        var _Data = {"op" : "subscribe", "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
         ws.send(JSON.stringify(_Data));
       } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
-        console.log("Subscription successful for " + row.request.args);
-      } 
+        this.addlog("Subscription successful for " + row.request.args, "info", "TradeSummary.connectServer.ws.onmessage");
+      }
     };
 
     ws.onerror = (e) => {
-      console.log("On error message...");
-      if (this.mounted) { this.setState({ display: 'block' }); }
-      console.log(`Socket is closed. Reconnecting in  ${Math.min(10000 / 1000, (this.timeout + this.timeout) / 1000)} second.`);
+      this.addlog("On error message...", "error", "TradeSummary.connectServer.ws.onerror");
+      if (this.mounted) { 
+        this.setState({ display: 'block' }); 
+      }
+      this.addlog(`Socket is closed. Reconnecting in  ${Math.min(10000 / 1000, (this.timeout + this.timeout) / 1000)} second.`, "error", "TradeSummary.connectServer.ws.onerror");
       this.timeout = this.timeout + this.timeout;
       connectInterval = setTimeout(this.check, Math.min(10000, this.timeout));
-      //console.log("End On error message...");
     };
     ws.onclose = (e) => {
       if (ws != null) { ws.close(); }
     };
   };
-  /**</connectServer>*******************************************************************************************/
 
-  /**<check>***************************************************************************************************/
   check = () => {
     const { ws } = this.state;
-    //check if websocket instance is closed, if so call `connectServer` function.
     if (!ws || ws.readyState === WebSocket.CLOSED) this.connectServer();
   };
 
@@ -229,9 +229,7 @@ class TradeSummary extends Component {
     return (value == null || value.length === 0);
   }
 
-  /**<getData>**************************************************************************************************/
   getData(command, payload) {
-    //Copy the values from the payload object, if one was supplied
     var payloadCopy = {};
     if (payload !== undefined && payload !== null) {
       var keys = Object.keys(payload);
@@ -242,16 +240,15 @@ class TradeSummary extends Component {
     }
     return {"op": command, "args": [payload]};
   }
-  /**</getData>*************************************************************************************************/
 
   start() {
-    var result = consoleService.start();
+    consoleService.start();
   }
   stop() {
-    var result = consoleService.stop();
+    consoleService.stop();
   }
   rebalance() {
-    var result = consoleService.rebalance();
+    consoleService.rebalance();
   }
   render() {
     return this.getTemplate();
@@ -266,15 +263,16 @@ class TradeSummary extends Component {
             <div className="row">
               <div className="col-xs-12 col-sm-12 col-md-12 col-lg-12">
                 <div className="form-group">
-                  <span>
+                  <div style={{ display: "flex" }} >
+                    <div>
                     <table>
                       <thead>
                         <tr>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th style={{"white-space": "nowrap"}}></th>
+                          <th></th>
+                          <th></th>
+                          <th></th>
+                          <th></th>
+                          <th style={{"white-space": "nowrap"}}></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -334,10 +332,9 @@ class TradeSummary extends Component {
                           </td>
                         </tr>
                       </tbody>
-                    </table> 
-                  </span>
-                  <span>
-                    <div style={{ resize: "vertical", overflow: "auto", height: "10vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                    </table>  
+                    </div>
+                    <div style={{ resize: "vertical", overflow: "auto", height: "12vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                       <AgGridReact
                         ref="agGrid"
                         modules={this.state.modules}
@@ -349,7 +346,10 @@ class TradeSummary extends Component {
                         getRowNodeId={data => data.__row_id__} 
                         />
                     </div>
-                  </span>
+                    <div style={{ resize: "vertical", overflow: "auto", height: "12vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                        <LogView/>
+                    </div>
+                  </div>
                   <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                   <AgGridReact
                     ref="agGrid"
@@ -384,9 +384,6 @@ class TradeSummary extends Component {
     );
   }
 }
-
-//const mapStateToProps = (state) => ({traderRows: state.traderRows});
-//const mapDispatchToProps = (dispatch) => ({actions: bindActionCreators(actions, dispatch)});
 
 TradeSummary.contextTypes = {
   store: PropTypes.object                         // must be supplied when using redux with AgGridReact
