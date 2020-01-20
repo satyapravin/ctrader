@@ -23,7 +23,7 @@ class LogView extends Component {
       ,columnDefsLog: [
          { headerName: "Type", field: "type", width: 75}
         ,{ headerName: "Timestamp", field: "timestamp", width: 160} 
-        ,{ headerName: "Message", field: "Message", width: 75}
+        ,{ headerName: "Message", field: "message", width: 75}
       ]
       ,logsList: []
       ,modules: AllModules

@@ -48,7 +48,7 @@ class TradeSummary extends Component {
           Environment: "",
           State: "",
           WalletBalance: 0.0,
-          AvailableMargin: 0.0,
+          BalanceMargin: 0.0,
           RealizedPnl: 0.0,
           UnrealizedPnl: 0.0,
           Leverage: 0.0,
@@ -197,6 +197,8 @@ class TradeSummary extends Component {
             }
           }
         } 
+      } else if (row && row.success === false) {
+        this.addlog("Request failed!" + row.request, "error", "TradeSummary.connectServer.ws.onmessage")
       } else if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
         this.addlog("Authentication successful!", "info", "TradeSummary.connectServer.ws.onmessage")
         var _Data = {"op" : "subscribe", "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
@@ -300,8 +302,8 @@ class TradeSummary extends Component {
                                   <td>{this.state.strategySummary.total}</td>
                                 </tr>
                                 <tr>
-                                  <td>AvailableMargin</td>
-                                  <td>{this.state.strategySummary.AvailableMargin}</td>
+                                  <td>BalanceMargin</td>
+                                  <td>{this.state.strategySummary.BalanceMargin}</td>
                                 </tr>
                                 <tr>
                                   <td>RealizedPnl</td>
