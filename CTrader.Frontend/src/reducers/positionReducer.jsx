@@ -105,18 +105,18 @@ export default function positionReducer(state = {}, action) {
           }
         };
     case types.ADDINSTRUMENT:
-          payload.newInstrumentRow.__row_id__ = payload.newInstrumentRow.Symbol;
+          payload.newInstrumentRow.__row_id__ = payload.newInstrumentRow.symbol;
         return {
           data : {
               ...state.data,
-            orderRows: [
+            instrumentRows: [
               ...state.data.instrumentRows,
               payload.newInstrumentRow
             ]
           }
         };
       case types.UPDATEINSTRUMENT:
-        payload.updatedInstrumentRow.__row_id__ = payload.updatedInstrumentRow.Symbol;
+        payload.updatedInstrumentRow.__row_id__ = payload.updatedInstrumentRow.symbol;
         var existing_row = state.data.instrumentRows.filter(p => p.__row_id__ === payload.updatedInstrumentRow.__row_id__);
         if(existing_row.length >= 1) {
           var previous_row = {};

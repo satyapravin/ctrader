@@ -4,27 +4,20 @@ import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
-
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSync } from "@fortawesome/free-solid-svg-icons";
 import { faStopCircle } from '@fortawesome/free-solid-svg-icons';
 import { faPlayCircle } from '@fortawesome/free-solid-svg-icons';
 import { faRedo } from '@fortawesome/free-solid-svg-icons';
 import { consoleService } from '../../bal/console.bal';
 import OrderGrid from '../order_grid/OrderGrid';
 import { AllModules } from "@ag-grid-enterprise/all-modules";
-/**</import>****************************************************************************************************/
 import { Session } from './../../helper/session';
 import { connect} from "react-redux";
 import { bindActionCreators } from 'redux';
 import { actions } from '../../reducers/positionRowActions'
 import * as PropTypes from "prop-types"; 
-import hmacSha256 from 'crypto-js/hmac-sha256';
-import CryptoJS from 'crypto-js';
-import utf8 from 'utf8';
 
 class TradeSummary extends Component {
-
   
   getKeySecretSignature() {
     consoleService.GetAPIKey().then(data => { 
@@ -174,13 +167,8 @@ class TradeSummary extends Component {
       clearTimeout(connectInterval);
 
       if (this.mounted) {
-        //console.log("<trader>Setting state...");
-        this.setState({ ws: ws, display: "none" });
-
-        const APIKey = this.state.APIKey;
-        const APISignature =  this.state.APISignature;
-        const expires = this.state.APIExpires;
-        var _updateConnection = {"op" :"authKeyExpires", "args": [APIKey, expires, APISignature]};
+        this.setState({ ws: ws, display: "none" }); 
+        var _updateConnection = {"op" :"authKeyExpires", "args": [this.state.APIKey, this.state.APIExpires, this.state.APISignature]};
         const authMessage = JSON.stringify(_updateConnection);
         ws.send(authMessage);
       }
@@ -345,50 +333,47 @@ class TradeSummary extends Component {
                             <div title="Start" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.start}><FontAwesomeIcon icon={faPlayCircle} /></div>
                           </td>
                         </tr>
-                        </tbody>
-                        </table> 
-                        </span>
-                        <span>
-                          <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
-                            <AgGridReact
-                              ref="agGrid"
-                              modules={this.state.modules}
-                              columnDefs={this.state.columnDefsInstrument}
-                              defaultColDef={this.state.defaultColDefInstrument}
-                              rowData={this.props.data.instrumentRows}
-                              //onGridReady={params => params.api.sizeColumnsToFit()}
-                              deltaRowDataMode={true}
-                              getRowNodeId={data => data.__row_id__} 
-                              />
-                          </div>
-                        </span>
-
-
-                            <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
-                            <AgGridReact
-                              ref="agGrid"
-                              modules={this.state.modules}
-                              columnDefs={this.state.columnDefsPosition}
-                              defaultColDef={this.state.defaultColDefPosition}
-                              rowData={this.props.data.positionRows}
-                              //onGridReady={params => params.api.sizeColumnsToFit()}
-                              deltaRowDataMode={true}
-                              getRowNodeId={data => data.__row_id__} 
-                              />
-                            </div>
-                          
-                            <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
-                            <AgGridReact
-                              ref="agGrid"
-                              modules={this.state.modules}
-                              columnDefs={this.state.columnDefsOrder}
-                              defaultColDef={this.state.defaultColDefOrder}
-                              rowData={this.props.data.orderRows}
-                              //onGridReady={params => params.api.sizeColumnsToFit()}
-                              deltaRowDataMode={true}
-                              getRowNodeId={data => data.__row_id__} 
-                              />
-                            </div>
+                      </tbody>
+                    </table> 
+                  </span>
+                  <span>
+                    <div style={{ resize: "vertical", overflow: "auto", height: "10vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                      <AgGridReact
+                        ref="agGrid"
+                        modules={this.state.modules}
+                        columnDefs={this.state.columnDefsInstrument}
+                        defaultColDef={this.state.defaultColDefInstrument}
+                        rowData={this.props.data.instrumentRows}
+                        onGridReady={params => params.api.sizeColumnsToFit()}
+                        deltaRowDataMode={true}
+                        getRowNodeId={data => data.__row_id__} 
+                        />
+                    </div>
+                  </span>
+                  <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                  <AgGridReact
+                    ref="agGrid"
+                    modules={this.state.modules}
+                    columnDefs={this.state.columnDefsPosition}
+                    defaultColDef={this.state.defaultColDefPosition}
+                    rowData={this.props.data.positionRows}
+                    onGridReady={params => params.api.sizeColumnsToFit()}
+                    deltaRowDataMode={true}
+                    getRowNodeId={data => data.__row_id__} 
+                    />
+                  </div>
+                  <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                  <AgGridReact
+                    ref="agGrid"
+                    modules={this.state.modules}
+                    columnDefs={this.state.columnDefsOrder}
+                    defaultColDef={this.state.defaultColDefOrder}
+                    rowData={this.props.data.orderRows}
+                    onGridReady={params => params.api.sizeColumnsToFit()}
+                    deltaRowDataMode={true}
+                    getRowNodeId={data => data.__row_id__} 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
