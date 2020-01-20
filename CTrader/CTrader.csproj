@@ -72,7 +72,7 @@
       <Name>Bitmex.NET</Name>
     </ProjectReference>
     <ProjectReference Include="..\CTrader.Interfaces\CTrader.Interfaces.csproj">
-      <Project>{5e5bdae7-b4c6-491c-b802-1adfaa617b8b}</Project>
+      <Project>{160CA96E-FCB4-47CE-87E4-ECC33068C043}</Project>
       <Name>CTrader.Interfaces</Name>
     </ProjectReference>
     <ProjectReference Include="..\CTrader.WebAPI\CTrader.WebAPI.csproj">
