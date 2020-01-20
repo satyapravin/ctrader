@@ -39,7 +39,7 @@ function GetAPISecret() {
 
 function GetSignature(timeexpires) {
     const requestOptions = { method: 'GET' };
-    return fetch(`${config.apiUrl}/console/getsignature`, requestOptions).then(handleResponse).then(apisignature => { return apisignature; });
+    return fetch(`${config.apiUrl}/console/getsignature/${timeexpires}`, requestOptions).then(handleResponse).then(apisignature => { return apisignature; });
 }
 
 function GetStrategySummary() {

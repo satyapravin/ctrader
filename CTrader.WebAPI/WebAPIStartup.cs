@@ -17,6 +17,9 @@ namespace CTrader.WebAPI
             _strategy = strategy;
 
             var config = new HttpSelfHostConfiguration("http://localhost:7080");
+
+            config.MapHttpAttributeRoutes();
+
             config.Routes.MapHttpRoute("API Default", "api/{controller}/{action}/{id}", new { id = RouteParameter.Optional });
             config.EnableCors();
 
