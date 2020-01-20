@@ -47,9 +47,10 @@ namespace CTrader.WebAPI
 
         [HttpGet]
         [ActionName("getsignature")]
-        public string GetSignature(int timeExpires)
+        public string GetSignature()
         {
-            return WebAPIStartup.GetSignature(timeExpires);
+            int timeexpires = 1980251174;
+            return WebAPIStartup.GetSignature(timeexpires);
         }
 
         [HttpGet]

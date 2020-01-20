@@ -25,6 +25,25 @@ import utf8 from 'utf8';
 
 class TradeSummary extends Component {
 
+  
+  getKeySecretSignature() {
+    consoleService.GetAPIKey().then(data => { 
+        this.setState({APIKey : data})
+      },
+      error => { console.log(error.toString()); }
+    );
+    consoleService.GetAPISecret().then(data => { 
+        this.setState({APISecret : data})
+      }, 
+      error => { console.log(error.toString()); }
+    );
+    
+    consoleService.GetSignature(this.state.APIExpires).then(data => { 
+        this.setState({APISignature : data})
+      },
+      error => { console.log(error.toString()); }
+    );
+  }
   constructor(props) {
     super(props);
     this.mounted = false;
@@ -82,21 +101,25 @@ class TradeSummary extends Component {
       ws: null,
       user: Session.getItem(config.token),
       showPopup: false,
-      display: "none"
+      display: "none",
+      APIKey: "",
+      APISecret: "",
+      APISignature: "",
+      APIExpires: 1980251174
     };
+    this.getKeySecretSignature = this.getKeySecretSignature.bind(this);
+    this.getKeySecretSignature();
     this.start = this.start.bind(this);
     this.stop = this.stop.bind(this);
     this.rebalance = this.rebalance.bind(this);
     this.refresh = this.refresh.bind(this);
     this.refreshRequest = this.refreshRequest.bind(this);
   }
-  
-  /**<refresh>**************************************************************************************************/
+
   refresh() {
     window.location.reload();
   }
-  /**</refresh>*************************************************************************************************/
-
+  
   /**<refreshRequest>*******************************************************************************************/
   refreshRequest() {
     try {
@@ -135,9 +158,7 @@ class TradeSummary extends Component {
     this.setState({strategySummary : data})
     },
       error => {
-        //this.error(error.toString());
         console.log(error.toString());
-        //this.handleClose();
       }
     );
   }
@@ -156,20 +177,16 @@ class TradeSummary extends Component {
         //console.log("<trader>Setting state...");
         this.setState({ ws: ws, display: "none" });
 
-        const APIKey = "PJwsol2h0OOjl7nS5nkKJIab";
-        const secret = utf8.encode("YwWQPTVZpUv2gOQQmBdQ4wdvQtv0FMhC_liK_tzqe_zDJnml");
-        const expires = 1580251174;
-        const message = utf8.encode('GET/realtime' + expires);
-        const signature =  hmacSha256(secret,message);
-        const signat =  signature.toString();
-        var _updateConnection = {"op" :"authKeyExpires", "args": [APIKey, expires, "39c2bfba7fb3f90b61dfce487473110589eb75442b8df2cbccea3a38a623897f"]};
+        const APIKey = this.state.APIKey;
+        const APISignature =  this.state.APISignature;
+        const expires = this.state.APIExpires;
+        var _updateConnection = {"op" :"authKeyExpires", "args": [APIKey, expires, APISignature]};
         const authMessage = JSON.stringify(_updateConnection);
         ws.send(authMessage);
       }
     };
 
     ws.onmessage = e => {
-      //console.log(e) ;
       const { user } = this.state;
       let row = JSON.parse(e.data);
 

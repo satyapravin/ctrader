@@ -1,15 +1,31 @@
 ﻿using Bitmex.NET.Authorization;
 using CTrader.Interfaces;
+using System.Threading;
+using System.Web.Http;
+using System.Web.Http.SelfHost;
+using log4net;
 using System.Configuration;
 
 namespace CTrader.WebAPI
 {
     public class WebAPIStartup
     {
+        private static readonly ILog Log = log4net.LogManager.GetLogger("Startup");
         static IStrategy _strategy;
         public static void Start(IStrategy strategy)
         {
             _strategy = strategy;
+
+            var config = new HttpSelfHostConfiguration("http://localhost:7080");
+            config.Routes.MapHttpRoute("API Default", "api/{controller}/{action}/{id}", new { id = RouteParameter.Optional });
+            config.EnableCors();
+
+            using (HttpSelfHostServer server = new HttpSelfHostServer(config))
+            {
+                server.OpenAsync().Wait();
+                Log.Debug($"Started CTrader WebAPI");
+                Thread.Sleep(Timeout.Infinite);
+            }
         }
         public static void Start()
         {
