@@ -185,6 +185,7 @@ class TradeSummary extends Component {
     ws.onmessage = e => {
       try {
         let row = JSON.parse(e.data);
+        console.log(row);
 
         if (row && row.table) {
           if (this.mounted) {
@@ -344,7 +345,7 @@ class TradeSummary extends Component {
                       </tbody>
                     </table>  
                     </div>
-                    <div style={{ resize: "vertical", overflow: "auto", height: "36vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                    <div style={{ resize: "vertical", overflow: "auto", height: "50vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                       <AgGridReact
                         ref="agGrid"
                         modules={this.state.modules}
@@ -356,7 +357,7 @@ class TradeSummary extends Component {
                         getRowNodeId={data => data.__row_id__} 
                         />
                     </div>
-                    <div style={{ resize: "vertical", overflow: "auto", height: "36vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                    <div style={{ resize: "vertical", overflow: "auto", height: "50vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                         <LogView/>
                     </div>
                   </div>

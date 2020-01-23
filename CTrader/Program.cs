@@ -15,7 +15,7 @@ namespace CTrader
             string apiSecret = ConfigurationManager.AppSettings["APISECRET"];
             bool isLive = bool.Parse(ConfigurationManager.AppSettings["ISLIVE"]);
             IStrategy strategy = new Strategy(apiKey, apiSecret, isLive);
-            strategy.Start();
+            //strategy.Start();
             Task.Run(() => WebAPIStartup.Start(strategy));
             Thread.Sleep(0);
         }
