@@ -1,5 +1,5 @@
 {
     "token"     : "CTrader-token",
-    "apiUrl"    : "http://127.0.0.1:5000",
-    "wsUrl"     : "wss://testnet.bitmex.com/realtime"
+    "apiUrl"    : "http://127.0.0.1:7080/api",
+    "wsUrl"     : "wss://www.bitmex.com/realtime"
 }

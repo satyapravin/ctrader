@@ -1,17 +1,16 @@
 ﻿using Bitmex.NET.Dtos;
 using Bitmex.NET.Models;
+using CTrader.Interfaces;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using static CTrader.SlackClient;
 
 namespace CTrader
 {
-    class Strategy
+    public class Strategy : IStrategy
     {
         log4net.ILog log = log4net.LogManager.GetLogger(typeof(Strategy));
         private enum Command {  START, STOP, REBALANCE };
@@ -25,24 +24,23 @@ namespace CTrader
         private XCFUSD xcfProperties = new XCFUSD();
         private decimal lastXbt = 0;
         private decimal lastEth = 0;
-        private decimal lastXcf = 0;
+        private decimal previousNotional = 0;
+
         private int counter = 0;
         private ExchangeService.Exchange exchange = null;
         private SlackClient slackMessenger = null;
-        private SlackClient slackMessengerOffline = null;
 
-        public Strategy(string apiKey, string apiSecret, bool isLive, string slackUrl, string offline)
+        public Strategy(string apiKey, string apiSecret, bool isLive, string slackUrl)
         {
             if (isLive)
                 environment = "PROD";
 
             slackMessenger = new SlackClient(slackUrl);
-            slackMessengerOffline = new SlackClient(offline);
             exchange = new ExchangeService.Exchange(apiKey, apiSecret, isLive);
             HashSet<string> symbols = new HashSet<string>
             {
                 xbtProperties.Reference(),
-                xcfProperties.Reference()
+                ethProperties.Reference()
             };
 
             exchange.marketDataSystem.RegisterInstruments(symbols);
@@ -131,6 +129,10 @@ namespace CTrader
                 summary.UsedMargin = margin.MarginUsedPcnt.HasValue ? (decimal)margin.MarginUsedPcnt.Value : 0;
                 var totalBalance = ConvertFromSatoshiToBtc(margin.MarginBalance.Value);
                 var notional = totalBalance / 3.0m * leverage;
+
+                if (previousNotional == 0)
+                    previousNotional = notional;
+
                 var positionTask = exchange.GetPositions(new PositionGETRequestParams());
                 var positions = positionTask.Result.Result;
 
@@ -155,46 +157,77 @@ namespace CTrader
                 }
 
                 decimal xbtPrice = exchange.marketDataSystem.GetInstrLast(xbtProperties.Reference());
-                decimal xcfPrice = exchange.marketDataSystem.GetInstrLast(xcfProperties.Reference());
-                decimal ethPrice = xcfPrice * xbtPrice;
+                decimal ethPrice = exchange.marketDataSystem.GetInstrLast(ethProperties.Reference());
+                decimal xcfPrice = ethPrice / xbtPrice;
 
-                decimal xbtAsk = exchange.marketDataSystem.GetBestAsk(xbtProperties.Symbol());
-                decimal ethBid = exchange.marketDataSystem.GetBestBid(ethProperties.Symbol());
-                decimal xcfAsk = exchange.marketDataSystem.GetBestAsk(xcfProperties.Symbol());
-
-                decimal runningPnl = 0;
-                if (lastXbt != 0 && lastEth != 0 && lastXcf != 0)
+                if (lastXbt == 0 || lastEth == 0)
                 {
-                    runningPnl = xbtQty * (xbtAsk - lastXbt) + ethQty * (ethBid - lastEth) + xcfQty * (xcfAsk - lastXcf);
+                    lastXbt = xbtPrice;
+                    lastEth = ethPrice;
                 }
 
-                if (xbtPrice > 0 || ethPrice > 0)
+                decimal xbtBid = exchange.marketDataSystem.GetBestBid(xbtProperties.Symbol());
+                decimal xbtAsk = exchange.marketDataSystem.GetBestAsk(xbtProperties.Symbol());
+                decimal ethBid = exchange.marketDataSystem.GetBestBid(ethProperties.Symbol());
+                decimal ethAsk = exchange.marketDataSystem.GetBestAsk(ethProperties.Symbol());
+
+                decimal xbtMid = (xbtBid + xbtAsk) * 0.5m;
+                decimal ethMid = (ethBid + ethAsk) * 0.5m;
+                decimal xcfMid = ethMid / xbtMid;
+
+                if (xbtPrice > 0 && ethPrice > 0)
                 {
+                    if (Math.Abs(notional - previousNotional) / notional > 0.15m)
+                    {
+                        previousNotional = notional;
+                    }
+                    else
+                    {
+                        notional = previousNotional;
+                    }
+
+                    log.Info(string.Format("Trading notional {0}", notional));
                     var xcfTotalQty = Math.Round(xcfProperties.GetQuantity(-notional, xcfPrice, xcfPrice));
-                    notional = Math.Abs(xcfProperties.GetPositionValue(xcfTotalQty, xcfPrice, xcfPrice));
-                    var xbtTotalQty = xbtProperties.GetQuantity(-notional, xbtPrice, xbtPrice);
-                    var ethTotalQty = ethProperties.GetQuantity(notional, ethPrice, ethPrice);
+                    var tradenotional = Math.Abs(xcfProperties.GetPositionValue(xcfTotalQty, xcfPrice, xcfPrice));
+
+                    var xbtTotalQty = xbtProperties.GetQuantity(-tradenotional, xbtPrice, xbtPrice);
+                    var ethTotalQty = ethProperties.GetQuantity(tradenotional, ethPrice, ethPrice);
                     var ethToTrade = Math.Round(ethTotalQty - ethQty);
                     var xcfToTrade = Math.Round(xcfTotalQty - xcfQty);
                     var xbtToTrade = Math.Round(xbtTotalQty - xbtQty);
 
-                    if (runningPnl != 0)
+                    decimal runningPnl = 0;
+                    if (lastXbt != 0 && lastEth != 0 && lastXbt != 0)
                     {
-                        decimal commission = Math.Abs(ethProperties.GetPositionValue(ethToTrade, ethBid, ethBid)) 
-                                           + Math.Abs(xbtProperties.GetPositionValue(xbtToTrade, xbtAsk, xbtAsk));
+                        log.Info(string.Format("XBT current {0}, XBT last {1}, ETH current {2}, ETH last {3}", xbtPrice, lastXbt, ethPrice, lastEth));
+                        decimal xbtPnl = xbtProperties.GetPnl(xbtQty, xbtPrice, lastXbt);
+                        decimal ethPnl = ethProperties.GetPnl(ethQty, ethPrice, lastEth);
+                        decimal xcfPnl = xcfProperties.GetPnl(xcfQty, xcfPrice, lastEth / lastXbt);
 
-                        commission *= 0.00075m;
-                        commission += Math.Abs(xcfProperties.GetPositionValue(xcfToTrade, xcfAsk, xcfAsk)) * 0.0025m;
-
-                        if (runningPnl < 3 * commission && counter < 60)
-                        {
-                            return;
-                        }
+                        runningPnl = xbtPnl + ethPnl + xcfPnl;
+                        log.Info(string.Format("{0} XBT moved {1} and {2} ETH moved {3} and running pnl={4}", 
+                                 xbtQty, (xbtPrice - lastXbt), ethQty, (ethPrice - lastEth), runningPnl));
                     }
 
-                    lastXbt = xbtAsk;
-                    lastEth = ethBid;
-                    lastXcf = xcfAsk;
+                    decimal commission = Math.Abs(ethProperties.GetPositionValue(ethToTrade, ethMid, ethMid)) 
+                                        + Math.Abs(xbtProperties.GetPositionValue(xbtToTrade, xbtMid, xbtMid));
+
+                    commission *= 0.00075m;
+                    commission += Math.Abs(xcfProperties.GetPositionValue(xcfToTrade, xcfMid, xcfMid)) * 0.0025m;
+                    int corr = Math.Sign(xbtPrice - lastXbt) * Math.Sign(ethPrice- lastEth);
+                    log.Info(string.Format("Correlation is {0}", corr));
+
+                    if (runningPnl != 0 && runningPnl < 2 * commission && counter < 120 && lastXbt != 0 && lastEth !=0 && xcfToTrade == 0)
+                    {
+                        log.Info(string.Format("Commission {0} too high", commission));
+                        return;
+                    }
+
+                    if (xbtToTrade == 0 && ethToTrade == 0 && xcfToTrade == 0)
+                    {
+                        log.Info("Nothing to trade - all trades are zero");
+                        return;
+                    }
 
                     OrderPOSTRequestParams xbtOrder = new OrderPOSTRequestParams
                     {
@@ -261,6 +294,8 @@ namespace CTrader
                     }
                     summary.State = "Running";
                     counter = 0;
+                    lastXbt = xbtPrice;
+                    lastEth = ethPrice;
                 }
             }
             catch (Exception e)
@@ -276,10 +311,9 @@ namespace CTrader
             try
             {
                 SlackMessage msg = new SlackMessage();
-                msg.Text = string.Format("{0}:  WalletBalance={1}  BalanceMargin={2}", 
-                    summary.Environment, summary.WalletBalance, summary.BalanceMargin);
+                msg.Text = string.Format("{0}:  WalletBalance={1} BTC     BalanceMargin={2} BTC", 
+                    summary.Environment, summary.WalletBalance * 0.00000001m, summary.BalanceMargin * 0.00000001m);
                 slackMessenger.SendSlackMessage(msg);
-                slackMessengerOffline.SendSlackMessage(msg);
 
             }
             catch(Exception e)
@@ -303,7 +337,7 @@ namespace CTrader
             queue.Add(Command.REBALANCE);
         }
 
-        public StrategySummary GetSummary()
+        public IStrategySummary GetSummary()
         {
             StrategySummary retval = null;
             Interlocked.Exchange<StrategySummary>(ref retval, strategySummary);

@@ -36,5 +36,41 @@ export const actions = {
       type: types.DELETEORDER,
       payload: {deletedOrderRow}
     };
+  },
+  newInstrumentRow(newInstrumentRow) {
+    return {
+      type: types.ADDINSTRUMENT,
+      payload: {newInstrumentRow}
+    };
+  },
+  updateInstrumentRow(updatedInstrumentRow) {
+    return {
+      type: types.UPDATEINSTRUMENT,
+      payload: {updatedInstrumentRow}
+    };
+  },
+  deleteInstrumentRow(deletedInstrumentRow) {
+    return {
+      type: types.DELETEINSTRUMENT,
+      payload: {deletedInstrumentRow}
+    };
+  },
+  newLogRow(newLogRow) {
+    return {
+      type: types.ADDLOG,
+      payload: {newLogRow}
+    };
+  },
+  updateLogRow(updatedLogRow) {
+    return {
+      type: types.UPDATELOG,
+      payload: {updatedLogRow}
+    };
+  },
+  deleteLogRow(deletedLogRow) {
+    return {
+      type: types.DELETELOG,
+      payload: {deletedLogRow}
+    };
   }
 };

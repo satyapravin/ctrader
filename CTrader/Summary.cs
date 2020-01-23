@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using CTrader.Interfaces;
 
 namespace CTrader
 {
-    class StrategySummary
+    public class StrategySummary : IStrategySummary
     {
         public string Environment { get; set; }
         public string State { get; set; }

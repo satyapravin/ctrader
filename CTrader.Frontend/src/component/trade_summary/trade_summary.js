@@ -4,34 +4,64 @@ import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
-
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSync } from "@fortawesome/free-solid-svg-icons";
 import { faStopCircle } from '@fortawesome/free-solid-svg-icons';
 import { faPlayCircle } from '@fortawesome/free-solid-svg-icons';
 import { faRedo } from '@fortawesome/free-solid-svg-icons';
 import { consoleService } from '../../bal/console.bal';
 import OrderGrid from '../order_grid/OrderGrid';
 import { AllModules } from "@ag-grid-enterprise/all-modules";
-/**</import>****************************************************************************************************/
 import { Session } from './../../helper/session';
 import { connect} from "react-redux";
 import { bindActionCreators } from 'redux';
-import { actions } from '../../reducers/positionRowActions'
+import { actions } from '../../reducers/actions'
+import LogView from '../logview'
 import * as PropTypes from "prop-types"; 
-import hmacSha256 from 'crypto-js/hmac-sha256';
-import CryptoJS from 'crypto-js';
-import utf8 from 'utf8';
 
 class TradeSummary extends Component {
+  
+  getKeySecretSignature() {
+    consoleService.GetAPIKey().then(data => { 
+        this.setState({APIKey : data})
+      },
+      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetAPIKey"); }
+    );
+    consoleService.GetAPISecret().then(data => { 
+        this.setState({APISecret : data})
+      }, 
+      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetAPISecret"); }
+    );
+    
+    consoleService.GetSignature(this.state.APIExpires).then(data => { 
+        this.setState({APISignature : data})
+      },
+      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetSignature"); }
+    );
+  }
 
   constructor(props) {
     super(props);
     this.mounted = false;
     this.timeout = 250;
-
     this.state = {
+      strategySummary : {
+          Environment: "",
+          State: "",
+          WalletBalance: 0.0,
+          AvailableMargin: 0.0,
+          RealizedPnl: 0.0,
+          UnrealizedPnl: 0.0,
+          Leverage: 0.0,
+          UsedMargin: 0.0
+        },
       modules: AllModules,
+      defaultColDefInstrument: { sortable: true, filter: true, resizable: true },
+      columnDefsInstrument: [
+        { headerName: "Sym", field: "symbol", width: 75},
+        { headerName: "LastPrice", field: "lastPrice", width: 75},
+        { headerName: "Mark Price", field: "markPrice", width: 100},
+        { headerName: "Timestamp", field: "timestamp", width: 100},
+      ],
       defaultColDefPosition: { sortable: true, filter: true, resizable: true },
       columnDefsPosition: [
         { headerName: "Sym", field: "symbol", width: 75},
@@ -66,138 +96,140 @@ class TradeSummary extends Component {
       ws: null,
       user: Session.getItem(config.token),
       showPopup: false,
-      display: "none"
+      display: "none",
+      APIKey: "",
+      APISecret: "",
+      APISignature: "",
+      APIExpires: 1980251174
     };
+    this.getKeySecretSignature = this.getKeySecretSignature.bind(this);
+    this.getKeySecretSignature();
     this.start = this.start.bind(this);
     this.stop = this.stop.bind(this);
     this.rebalance = this.rebalance.bind(this);
     this.refresh = this.refresh.bind(this);
     this.refreshRequest = this.refreshRequest.bind(this);
+    this.addlog = this.addlog.bind(this);
   }
-  
-  /**<refresh>**************************************************************************************************/
+
+  addlog(message, type, source) {
+    const timestamp = Date.now(); 
+    this.props.actions.updateLogRow({ "message": message, "type": type, "source": source, "timestamp": timestamp });
+  }
+
   refresh() {
     window.location.reload();
   }
-  /**</refresh>*************************************************************************************************/
-
-  /**<refreshRequest>*******************************************************************************************/
+  
   refreshRequest() {
     try {
       const { ws } = this.state;
       var refreshRequestData = this.getData("refresh_request");
       ws.send(refreshRequestData);
     } catch (error) {
-      console.log('error:%o', error);
+      this.addlog(error, "error", "TradeSummary.refreshRequest");
     }
   }
-  /**</refreshRequest>******************************************************************************************/
 
   componentDidMount() {
     this.mounted = true;
     this.connectServer();
+    this.intervalID = setInterval(
+      () => this.tick(),
+      5000
+    );
   }
 
-  /**</componentWillUnmount>************************************************************************************/
   componentWillUnmount() {
     if (this.mounted) {
       const { ws } = this.state;
-      console.log('Trader : componentWillUnmount');
+      this.addlog('Trader : componentWillUnmount', "info", "TradeSummary.componentWillUnmount");
       if (ws !== null && ws.readyState !== WebSocket.CLOSED) {
         ws.close();
         this.setState({ ws: ws });
       }
+      clearInterval(this.intervalID);
     }
   }
+  tick() {
+    consoleService.GetStrategySummary().then(data => { 
+        this.setState({strategySummary : data})
+      },
+      error => {
+        this.addlog(error.toString(), "error", "TradeSummary.tick");
+      }
+    );
+  }
 
-  /**<connectServer>********************************************************************************************/
   connectServer = () => {
     var ws = new WebSocket(config.wsUrl);
     var connectInterval;
 
     ws.onopen = () => {
-      console.log("Connected...");
-      const { user } = this.state;
+      this.addlog("Connected...", "info", "TradeSummary.connectServer.ws.onopen");
       this.timeout = 250;
       clearTimeout(connectInterval);
 
       if (this.mounted) {
-        //console.log("<trader>Setting state...");
-        this.setState({ ws: ws, display: "none" });
-
-        const APIKey = "PJwsol2h0OOjl7nS5nkKJIab";
-        const secret = utf8.encode("YwWQPTVZpUv2gOQQmBdQ4wdvQtv0FMhC_liK_tzqe_zDJnml");
-        const expires = 1580251174;
-        const message = utf8.encode('GET/realtime' + expires);
-        const signature =  hmacSha256(secret,message);
-        const signat =  signature.toString();
-        var _updateConnection = {"op" :"authKeyExpires", "args": [APIKey, expires, "39c2bfba7fb3f90b61dfce487473110589eb75442b8df2cbccea3a38a623897f"]};
+        this.setState({ ws: ws, display: "none" }); 
+        var _updateConnection = {"op" :"authKeyExpires", "args": [this.state.APIKey, this.state.APIExpires, this.state.APISignature]};
         const authMessage = JSON.stringify(_updateConnection);
         ws.send(authMessage);
       }
     };
 
     ws.onmessage = e => {
-      console.log(e) ;
-      const { user } = this.state;
       let row = JSON.parse(e.data);
-      //console.log("New Message - " + row.Traders);
 
-      const { tradersList, logsList, tradersDictionary, logsDictionary } = this.state;
-      if (row && row.table && row.table === 'order') {
-        //console.log('snapshotTraders:%o', row.Traders);
+      if (row && row.table) {
         if (this.mounted) {
-          for (var index = 0; index < row.data.length; index++) {
-            this.props.actions.updateOrderRow(row.data[index]);
+          if(row.table === 'order') {
+            for (let index = 0; index < row.data.length; index++) {
+              this.props.actions.updateOrderRow(row.data[index]);
+            }
+          } else if(row.table === 'position') {
+            for (let index = 0; index < row.data.length; index++) {
+              this.props.actions.updatePositionRow(row.data[index]);
+            }
+          } else if(row.table === 'instrument') {
+            for (let index = 0; index < row.data.length; index++) {
+              this.props.actions.updateInstrumentRow(row.data[index]);
+            }
           }
-        }
-      } else if (row && row.table && row.table === 'position') {
-        //console.log('snapshotTraders:%o', row.Traders);
-        if (this.mounted) {
-          for (var index = 0; index < row.data.length; index++) {
-            this.props.actions.updatePositionRow(row.data[index]);
-          }
-        }
+        } 
       } else if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
-        console.log("Authentication successful!")
-        var _Data = {"op" : "subscribe", "args":["position", "order"]};
+        this.addlog("Authentication successful!", "info", "TradeSummary.connectServer.ws.onmessage")
+        var _Data = {"op" : "subscribe", "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
         ws.send(JSON.stringify(_Data));
       } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
-        console.log("Subscription successful for " + row.request.args);
-        //ws.send(_Data);
-      } 
+        this.addlog("Subscription successful for " + row.request.args, "info", "TradeSummary.connectServer.ws.onmessage");
+      }
     };
 
     ws.onerror = (e) => {
-      console.log("On error message...");
-      if (this.mounted) { this.setState({ display: 'block' }); }
-      console.log(`Socket is closed. Reconnecting in  ${Math.min(10000 / 1000, (this.timeout + this.timeout) / 1000)} second.`);
+      this.addlog("On error message...", "error", "TradeSummary.connectServer.ws.onerror");
+      if (this.mounted) { 
+        this.setState({ display: 'block' }); 
+      }
+      this.addlog(`Socket is closed. Reconnecting in  ${Math.min(10000 / 1000, (this.timeout + this.timeout) / 1000)} second.`, "error", "TradeSummary.connectServer.ws.onerror");
       this.timeout = this.timeout + this.timeout;
       connectInterval = setTimeout(this.check, Math.min(10000, this.timeout));
-      //console.log("End On error message...");
     };
     ws.onclose = (e) => {
       if (ws != null) { ws.close(); }
-      //console.log("completed on close message...");
     };
   };
-  /**</connectServer>*******************************************************************************************/
 
-  /**<check>***************************************************************************************************/
   check = () => {
     const { ws } = this.state;
-    //check if websocket instance is closed, if so call `connectServer` function.
     if (!ws || ws.readyState === WebSocket.CLOSED) this.connectServer();
   };
 
-  
   isEmpty(value) {
     return (value == null || value.length === 0);
   }
 
-  /**<getData>**************************************************************************************************/
   getData(command, payload) {
-    //Copy the values from the payload object, if one was supplied
     var payloadCopy = {};
     if (payload !== undefined && payload !== null) {
       var keys = Object.keys(payload);
@@ -208,21 +240,16 @@ class TradeSummary extends Component {
     }
     return {"op": command, "args": [payload]};
   }
-  /**</getData>*************************************************************************************************/
-
 
   start() {
-    var result = consoleService.start();
+    consoleService.start();
   }
-
   stop() {
-    var result = consoleService.stop();
+    consoleService.stop();
   }
-
   rebalance() {
-    var result = consoleService.rebalance();
+    consoleService.rebalance();
   }
-
   render() {
     return this.getTemplate();
   }
@@ -236,14 +263,16 @@ class TradeSummary extends Component {
             <div className="row">
               <div className="col-xs-12 col-sm-12 col-md-12 col-lg-12">
                 <div className="form-group">
+                  <div style={{ display: "flex" }} >
+                    <div>
                     <table>
                       <thead>
                         <tr>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th style={{"white-space": "nowrap"}}></th>
+                          <th></th>
+                          <th></th>
+                          <th></th>
+                          <th></th>
+                          <th style={{"white-space": "nowrap"}}></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -254,25 +283,41 @@ class TradeSummary extends Component {
                           <td>
                             <table>
                               <tbody>
-                              <tr>
-                                  <td>Total</td>
-                                  <td>{this.state.total}</td>
+                                <tr>
+                                  <td>Environment</td>
+                                  <td>{this.state.strategySummary.Environment}</td>
                                 </tr>
                                 <tr>
-                                  <td>Available</td>
-                                  <td>{this.state.total}</td>
+                                  <td>State</td>
+                                  <td>{this.state.strategySummary.State}</td>
                                 </tr>
                                 <tr>
-                                  <td>Fair Price</td>
-                                  <td>{this.state.total}</td>
+                                  <td>WalletBalance</td>
+                                  <td>{this.state.strategySummary.WalletBalance}</td>
                                 </tr>
                                 <tr>
                                   <td>Target</td>
-                                  <td>{this.state.total}</td>
+                                  <td>{this.state.strategySummary.total}</td>
                                 </tr>
                                 <tr>
-                                  <td>Time Left</td>
-                                  <td>{this.state.total}</td>
+                                  <td>AvailableMargin</td>
+                                  <td>{this.state.strategySummary.AvailableMargin}</td>
+                                </tr>
+                                <tr>
+                                  <td>RealizedPnl</td>
+                                  <td>{this.state.strategySummary.RealizedPnl}</td>
+                                </tr>
+                                <tr>
+                                  <td>UnrealizedPnl</td>
+                                  <td>{this.state.strategySummary.UnrealizedPnl}</td>
+                                </tr>
+                                <tr>
+                                  <td>Leverage</td>
+                                  <td>{this.state.strategySummary.Leverage}</td>
+                                </tr>
+                                <tr>
+                                  <td>UsedMargin</td>
+                                  <td>{this.state.strategySummary.UsedMargin}</td>
                                 </tr>
                               </tbody>
                             </table>
@@ -286,33 +331,49 @@ class TradeSummary extends Component {
                             <div title="Start" style={{float:"right", paddingRight:"15px", cursor:"pointer"}} onClick={this.start}><FontAwesomeIcon icon={faPlayCircle} /></div>
                           </td>
                         </tr>
-                        </tbody>
-                        </table> 
-                            <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
-                            <AgGridReact
-                              ref="agGrid"
-                              modules={this.state.modules}
-                              columnDefs={this.state.columnDefsPosition}
-                              defaultColDef={this.state.defaultColDefPosition}
-                              rowData={this.props.positionRows}
-                              //onGridReady={params => params.api.sizeColumnsToFit()}
-                              deltaRowDataMode={true}
-                              getRowNodeId={data => data.__row_id__} 
-                              />
-                            </div>
-                          
-                            <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
-                            <AgGridReact
-                              ref="agGrid"
-                              modules={this.state.modules}
-                              columnDefs={this.state.columnDefsOrder}
-                              defaultColDef={this.state.defaultColDefOrder}
-                              rowData={this.props.orderRows}
-                              //onGridReady={params => params.api.sizeColumnsToFit()}
-                              deltaRowDataMode={true}
-                              getRowNodeId={data => data.__row_id__} 
-                              />
-                            </div>
+                      </tbody>
+                    </table>  
+                    </div>
+                    <div style={{ resize: "vertical", overflow: "auto", height: "12vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                      <AgGridReact
+                        ref="agGrid"
+                        modules={this.state.modules}
+                        columnDefs={this.state.columnDefsInstrument}
+                        defaultColDef={this.state.defaultColDefInstrument}
+                        rowData={this.props.data.instrumentRows}
+                        onGridReady={params => params.api.sizeColumnsToFit()}
+                        deltaRowDataMode={true}
+                        getRowNodeId={data => data.__row_id__} 
+                        />
+                    </div>
+                    <div style={{ resize: "vertical", overflow: "auto", height: "12vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                        <LogView/>
+                    </div>
+                  </div>
+                  <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                  <AgGridReact
+                    ref="agGrid"
+                    modules={this.state.modules}
+                    columnDefs={this.state.columnDefsPosition}
+                    defaultColDef={this.state.defaultColDefPosition}
+                    rowData={this.props.data.positionRows}
+                    onGridReady={params => params.api.sizeColumnsToFit()}
+                    deltaRowDataMode={true}
+                    getRowNodeId={data => data.__row_id__} 
+                    />
+                  </div>
+                  <div style={{ resize: "vertical", overflow: "auto", height: "18vh", width: 'auto', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                  <AgGridReact
+                    ref="agGrid"
+                    modules={this.state.modules}
+                    columnDefs={this.state.columnDefsOrder}
+                    defaultColDef={this.state.defaultColDefOrder}
+                    rowData={this.props.data.orderRows}
+                    onGridReady={params => params.api.sizeColumnsToFit()}
+                    deltaRowDataMode={true}
+                    getRowNodeId={data => data.__row_id__} 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -324,14 +385,11 @@ class TradeSummary extends Component {
   }
 }
 
-//const mapStateToProps = (state) => ({traderRows: state.traderRows});
-//const mapDispatchToProps = (dispatch) => ({actions: bindActionCreators(actions, dispatch)});
-
 TradeSummary.contextTypes = {
   store: PropTypes.object                         // must be supplied when using redux with AgGridReact
 };
 
-const mapStateToProps = (state) => ({positionRows: state.positionRows, orderRows: state.orderRows});
+const mapStateToProps = (state) => ({data: state.data});
 const mapDispatchToProps = (dispatch) => ({actions: bindActionCreators(actions, dispatch)});
 export default connect(mapStateToProps, mapDispatchToProps)(TradeSummary);
 
@@ -464,4 +522,111 @@ unrealisedPnlPcnt:0.0124
 unrealisedRoePcnt:1.2351
 unrealisedTax:0
 varMargin:0
+
+--------------------------------------
+instrument
+--------------------------------------
+askPrice:null
+bankruptLimitDownPrice:null
+bankruptLimitUpPrice:null
+bidPrice:null
+buyLeg:""
+calcInterval:null
+capped:false
+closingTimestamp:null
+deleverage:false
+expiry:null
+fairBasis:null
+fairBasisRate:null
+fairMethod:""
+fairPrice:null
+foreignNotional24h:null
+front:null
+fundingBaseSymbol:""
+fundingInterval:null
+fundingPremiumSymbol:""
+fundingQuoteSymbol:""
+fundingRate:null
+fundingTimestamp:null
+hasLiquidity:false
+highPrice:null
+homeNotional24h:null
+impactAskPrice:null
+impactBidPrice:null
+impactMidPrice:null
+indicativeFundingRate:null
+indicativeSettlePrice:null
+indicativeTaxRate:null
+initMargin:null
+insuranceFee:null
+inverseLeg:""
+isInverse:false
+isQuanto:false
+lastChangePcnt:0.0169
+lastPrice:9103.96
+lastPriceProtected:null
+lastTickDirection:"PlusTick"
+limit:null
+limitDownPrice:null
+limitUpPrice:null
+listing:null
+lotSize:null
+lowPrice:null
+maintMargin:null
+makerFee:null
+markMethod:"LastPrice"
+markPrice:9103.96
+maxOrderQty:null
+maxPrice:null
+midPrice:null
+multiplier:null
+openingTimestamp:null
+openInterest:null
+openValue:0
+optionMultiplier:null
+optionStrikePcnt:null
+optionStrikePrice:null
+optionStrikeRound:null
+optionUnderlyingPrice:null
+positionCurrency:""
+prevClosePrice:null
+prevPrice24h:8952.6
+prevTotalTurnover:null
+prevTotalVolume:null
+publishInterval:"2000-01-01T00:01:00.000Z"
+publishTime:null
+quoteCurrency:"USD"
+quoteToSettleMultiplier:null
+rebalanceInterval:null
+rebalanceTimestamp:null
+reference:"BMI"
+referenceSymbol:".BXBT"
+relistInterval:null
+riskLimit:null
+riskStep:null
+rootSymbol:"XBT"
+sellLeg:""
+sessionInterval:null
+settlCurrency:""
+settle:null
+settledPrice:null
+settlementFee:null
+state:"Unlisted"
+symbol:".BXBT"
+takerFee:null
+taxed:false
+tickSize:0.01
+timestamp:"2020-01-19T01:26:55.000Z"
+totalTurnover:null
+totalVolume:null
+turnover:null
+turnover24h:null
+typ:"MRCXXX"
+underlying:"XBT"
+underlyingSymbol:"XBT="
+underlyingToPositionMultiplier:null
+underlyingToSettleMultiplier:null
+volume:null
+volume24h:null
+vwap:null
 */
