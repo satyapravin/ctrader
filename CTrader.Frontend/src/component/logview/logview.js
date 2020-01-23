@@ -21,9 +21,9 @@ class LogView extends Component {
        user: JSON.parse(Session.getItem(config.token))
       ,defaultColDefLog: { sortable: true, filter: true, resizable: true }
       ,columnDefsLog: [
-         { headerName: "Type", field: "type", width: 75}
-        ,{ headerName: "Timestamp", field: "timestamp", width: 160} 
-        ,{ headerName: "Message", field: "Message", width: 75}
+        { headerName: "Message", field: "message", width: 200}
+        ,{ headerName: "Type", field: "type", width: 50} 
+        ,{ headerName: "Timestamp", field: "timestamp", width: 160}
       ]
       ,logsList: []
       ,modules: AllModules

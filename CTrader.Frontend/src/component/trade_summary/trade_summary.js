@@ -48,7 +48,7 @@ class TradeSummary extends Component {
           Environment: "",
           State: "",
           WalletBalance: 0.0,
-          AvailableMargin: 0.0,
+          BalanceMargin: 0.0,
           RealizedPnl: 0.0,
           UnrealizedPnl: 0.0,
           Leverage: 0.0,
@@ -166,6 +166,7 @@ class TradeSummary extends Component {
     var connectInterval;
 
     ws.onopen = () => {
+      try{
       this.addlog("Connected...", "info", "TradeSummary.connectServer.ws.onopen");
       this.timeout = 250;
       clearTimeout(connectInterval);
@@ -176,33 +177,43 @@ class TradeSummary extends Component {
         const authMessage = JSON.stringify(_updateConnection);
         ws.send(authMessage);
       }
+      } catch (error) {
+        this.addlog(error, "error", "TradeSummary.ws.onopen");
+      }
     };
 
     ws.onmessage = e => {
-      let row = JSON.parse(e.data);
+      try {
+        let row = JSON.parse(e.data);
+        console.log(row);
 
-      if (row && row.table) {
-        if (this.mounted) {
-          if(row.table === 'order') {
-            for (let index = 0; index < row.data.length; index++) {
-              this.props.actions.updateOrderRow(row.data[index]);
+        if (row && row.table) {
+          if (this.mounted) {
+            if(row.table === 'order') {
+              for (let index = 0; index < row.data.length; index++) {
+                this.props.actions.updateOrderRow(row.data[index]);
+              }
+            } else if(row.table === 'position') {
+              for (let index = 0; index < row.data.length; index++) {
+                this.props.actions.updatePositionRow(row.data[index]);
+              }
+            } else if(row.table === 'instrument') {
+              for (let index = 0; index < row.data.length; index++) {
+                this.props.actions.updateInstrumentRow(row.data[index]);
+              }
             }
-          } else if(row.table === 'position') {
-            for (let index = 0; index < row.data.length; index++) {
-              this.props.actions.updatePositionRow(row.data[index]);
-            }
-          } else if(row.table === 'instrument') {
-            for (let index = 0; index < row.data.length; index++) {
-              this.props.actions.updateInstrumentRow(row.data[index]);
-            }
-          }
-        } 
-      } else if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
-        this.addlog("Authentication successful!", "info", "TradeSummary.connectServer.ws.onmessage")
-        var _Data = {"op" : "subscribe", "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
-        ws.send(JSON.stringify(_Data));
-      } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
-        this.addlog("Subscription successful for " + row.request.args, "info", "TradeSummary.connectServer.ws.onmessage");
+          } 
+        } else if (row && row.success === false) {
+          this.addlog("Request failed!" + row.request, "error", "TradeSummary.connectServer.ws.onmessage")
+        } else if (row && row.success === true && row.request && row.request.op === "authKeyExpires") {
+          this.addlog("Authentication successful!", "info", "TradeSummary.connectServer.ws.onmessage")
+          var _Data = {"op" : "subscribe", "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
+          ws.send(JSON.stringify(_Data));
+        } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
+          this.addlog("Subscription successful for " + row.request.args, "info", "TradeSummary.connectServer.ws.onmessage");
+        }
+      } catch (error) {
+        this.addlog(error, "error", "TradeSummary.ws.onmessage");
       }
     };
 
@@ -300,8 +311,8 @@ class TradeSummary extends Component {
                                   <td>{this.state.strategySummary.total}</td>
                                 </tr>
                                 <tr>
-                                  <td>AvailableMargin</td>
-                                  <td>{this.state.strategySummary.AvailableMargin}</td>
+                                  <td>BalanceMargin</td>
+                                  <td>{this.state.strategySummary.BalanceMargin}</td>
                                 </tr>
                                 <tr>
                                   <td>RealizedPnl</td>
@@ -334,7 +345,7 @@ class TradeSummary extends Component {
                       </tbody>
                     </table>  
                     </div>
-                    <div style={{ resize: "vertical", overflow: "auto", height: "12vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                    <div style={{ resize: "vertical", overflow: "auto", height: "50vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                       <AgGridReact
                         ref="agGrid"
                         modules={this.state.modules}
@@ -346,7 +357,7 @@ class TradeSummary extends Component {
                         getRowNodeId={data => data.__row_id__} 
                         />
                     </div>
-                    <div style={{ resize: "vertical", overflow: "auto", height: "12vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
+                    <div style={{ resize: "vertical", overflow: "auto", height: "50vh", width: '600px', padding: "5px 0px 8px 0px", position: "relative", borderTop: "solid 1px white" }} className="ag-theme-balham-dark">
                         <LogView/>
                     </div>
                   </div>
