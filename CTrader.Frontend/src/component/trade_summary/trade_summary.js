@@ -113,7 +113,7 @@ class TradeSummary extends Component {
   }
 
   addlog(message, type, source) {
-    const timestamp = Date.now(); 
+    const timestamp = new Date().toLocaleString(); 
     this.props.actions.updateLogRow({ "message": message, "type": type, "source": source, "timestamp": timestamp });
   }
 
@@ -185,7 +185,7 @@ class TradeSummary extends Component {
     ws.onmessage = e => {
       try {
         let row = JSON.parse(e.data);
-        console.log(row);
+        //console.log(row);
 
         if (row && row.table) {
           if (this.mounted) {
@@ -210,7 +210,7 @@ class TradeSummary extends Component {
           var _Data = {"op" : "subscribe", "args":["position", "order", "instrument:.BXBT", "instrument:.BETH"]};
           ws.send(JSON.stringify(_Data));
         } else if (row && row.success === true && row.request && row.request.op === "subscribe") {
-          this.addlog("Subscription successful for " + row.request.args, "info", "TradeSummary.connectServer.ws.onmessage");
+          this.addlog("Subscription successful for " + row.subscribe, "info", "TradeSummary.connectServer.ws.onmessage");
         }
       } catch (error) {
         this.addlog(error, "error", "TradeSummary.ws.onmessage");
