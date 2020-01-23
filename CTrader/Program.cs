@@ -14,7 +14,8 @@ namespace CTrader
             string apiKey = ConfigurationManager.AppSettings["APIKEY"];
             string apiSecret = ConfigurationManager.AppSettings["APISECRET"];
             bool isLive = bool.Parse(ConfigurationManager.AppSettings["ISLIVE"]);
-            IStrategy strategy = new Strategy(apiKey, apiSecret, isLive);
+            string slackUrl = ConfigurationManager.AppSettings["SLACKURL"];
+            IStrategy strategy = new Strategy(apiKey, apiSecret, isLive, slackUrl);
             //strategy.Start();
             Task.Run(() => WebAPIStartup.Start(strategy));
             Thread.Sleep(0);

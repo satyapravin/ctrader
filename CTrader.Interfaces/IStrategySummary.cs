@@ -5,7 +5,7 @@
         string Environment { get; set; }
         string State { get; set; }
         decimal WalletBalance { get; set; }
-        decimal AvailableMargin { get; set; }
+        decimal BalanceMargin { get; set; }
         decimal RealizedPnl { get; set; }
         decimal UnrealizedPnl { get; set; }
         decimal Leverage { get; set; }
