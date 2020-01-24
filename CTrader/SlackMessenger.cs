@@ -12,7 +12,8 @@ namespace CTrader
 
         public SlackClient(string url)
         {
-            this._webHookUri = new Uri(url);
+            if (!string.IsNullOrWhiteSpace(url))
+                this._webHookUri = new Uri(url);
         }
 
         public void SendSlackMessage(SlackMessage message)
