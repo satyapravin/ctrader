@@ -24,6 +24,7 @@ class LogView extends Component {
         { headerName: "Message", field: "message", width: 200}
         ,{ headerName: "Type", field: "type", width: 50} 
         ,{ headerName: "Timestamp", field: "timestamp", width: 160}
+        ,{ headerName: "Source", field: "source", width: 160}
       ]
       ,logsList: []
       ,modules: AllModules
@@ -36,16 +37,16 @@ class LogView extends Component {
 
   showPage() {
     return (
-        <AgGridReact
-          ref="agGrid"
-          modules={this.state.modules}
-          columnDefs={this.state.columnDefsLog}
-          defaultColDef={this.state.defaultColDefLog}
-          rowData={this.props.data.logRows}
-          onGridReady={params => params.api.sizeColumnsToFit()}
-          deltaRowDataMode={true}
-          getRowNodeId={data => data.__row_id__} 
-          />
+      <AgGridReact
+        ref="agGrid"
+        modules={this.state.modules}
+        columnDefs={this.state.columnDefsLog}
+        defaultColDef={this.state.defaultColDefLog}
+        rowData={this.props.data.logRows}
+        onGridReady={params => params.api.sizeColumnsToFit()}
+        deltaRowDataMode={true}
+        getRowNodeId={data => data.__row_id__} 
+        />
     );
   }
 }

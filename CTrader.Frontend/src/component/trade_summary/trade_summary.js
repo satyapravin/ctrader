@@ -19,23 +19,23 @@ import LogView from '../logview'
 import * as PropTypes from "prop-types"; 
 
 class TradeSummary extends Component {
-  
   getKeySecretSignature() {
     consoleService.GetAPIKey().then(data => { 
         this.setState({APIKey : data})
+        consoleService.GetAPISecret().then(data => { 
+              this.setState({APISecret : data})
+              consoleService.GetSignature(this.state.APIExpires).then(data => { 
+                  this.setState({APISignature : data});
+                  this.connectServer();
+                  this.intervalID = setInterval(() => this.tick(), 5000);
+                },
+                error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetSignature"); }
+              );              
+            }, 
+            error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetAPISecret"); }
+          );
       },
       error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetAPIKey"); }
-    );
-    consoleService.GetAPISecret().then(data => { 
-        this.setState({APISecret : data})
-      }, 
-      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetAPISecret"); }
-    );
-    
-    consoleService.GetSignature(this.state.APIExpires).then(data => { 
-        this.setState({APISignature : data})
-      },
-      error => { this.addlog(error.toString(), "error", "TradeSummary.getKeySecretSignature.GetSignature"); }
     );
   }
 
@@ -103,7 +103,6 @@ class TradeSummary extends Component {
       APIExpires: 1980251174
     };
     this.getKeySecretSignature = this.getKeySecretSignature.bind(this);
-    this.getKeySecretSignature();
     this.start = this.start.bind(this);
     this.stop = this.stop.bind(this);
     this.rebalance = this.rebalance.bind(this);
@@ -130,14 +129,10 @@ class TradeSummary extends Component {
       this.addlog(error, "error", "TradeSummary.refreshRequest");
     }
   }
-
+  
   componentDidMount() {
     this.mounted = true;
-    this.connectServer();
-    this.intervalID = setInterval(
-      () => this.tick(),
-      5000
-    );
+    this.getKeySecretSignature();
   }
 
   componentWillUnmount() {

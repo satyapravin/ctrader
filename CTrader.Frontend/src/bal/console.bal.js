@@ -57,6 +57,7 @@ function handleResponse(response) {
             if (response.status === 401) {
             }
             const error = (data && data.error_message) || (data && data.message) || response.statusText;
+            console.log(error);
             return Promise.reject(error);
         }
 
