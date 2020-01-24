@@ -13,10 +13,6 @@ import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
 
-import StatusFormatter from '../status-formatter/status-formatter';
-import DateFormatter from '../date-formatter/date-formatter';
-import ErrorFormatter from '../error-formatter/error-formatter';
-
 class LogView extends Component {
 
   constructor(props) {
@@ -32,7 +28,6 @@ class LogView extends Component {
       ]
       ,logsList: []
       ,modules: AllModules
-      ,frameworkComponents: { 'statusFormatter': StatusFormatter, 'dateFormatter': DateFormatter, 'errorFormatter': ErrorFormatter },
     };
   }
 
@@ -42,7 +37,17 @@ class LogView extends Component {
 
   showPage() {
     return (
-          />    );
+      <AgGridReact
+        ref="agGrid"
+        modules={this.state.modules}
+        columnDefs={this.state.columnDefsLog}
+        defaultColDef={this.state.defaultColDefLog}
+        rowData={this.props.data.logRows}
+        onGridReady={params => params.api.sizeColumnsToFit()}
+        deltaRowDataMode={true}
+        getRowNodeId={data => data.__row_id__} 
+        />
+    );
   }
 }
 
