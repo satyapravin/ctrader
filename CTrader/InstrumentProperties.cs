@@ -14,10 +14,16 @@ namespace CTrader
         decimal GetQuantity(decimal posval, decimal bid, decimal ask);
 
         decimal GetPositionValue(decimal quantity, decimal bid, decimal ask);
+
+        decimal GetPnl(decimal quantity, decimal current, decimal previous);
     }
 
     public class XBTUSD : IInstrProp
     {
+        public decimal GetPnl(decimal quantity, decimal current, decimal previous)
+        {
+            return (1.0m / previous - 1.0m / current) * quantity;
+        }
         public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
             decimal retval = quantity;
@@ -59,6 +65,10 @@ namespace CTrader
 
     public class ETHUSD : IInstrProp
     {
+        public decimal GetPnl(decimal quantity, decimal current, decimal previous)
+        {
+            return 0.000001m * (current - previous) * quantity;
+        }
         public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
             decimal retval = 0.000001m;
@@ -93,13 +103,17 @@ namespace CTrader
 
         public string Reference()
         {
-            throw new NotImplementedException("Reference does not exist for ETH");
+            return ".BETH";
         }
 
     }
 
     public class XCFUSD : IInstrProp
     {
+        public decimal GetPnl(decimal quantity, decimal current, decimal previous)
+        {
+            return quantity * (current - previous);
+        }
         public decimal GetPositionValue(decimal quantity, decimal bid, decimal ask)
         {
             decimal retval = quantity;
@@ -135,7 +149,8 @@ namespace CTrader
 
         public string Reference()
         {
-            return ".BETHXBT30M";
+            //return ".BETHXBT30M";
+            throw new NotImplementedException();
         }
     }
 
