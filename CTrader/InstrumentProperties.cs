@@ -30,11 +30,11 @@ namespace CTrader
 
             if (quantity > 0)
             {
-                retval /= bid;
+                retval /= ask;
             }
             else
             {
-                retval /= ask;
+                retval /= bid;
             }
 
             return retval;
@@ -44,11 +44,11 @@ namespace CTrader
         {
             if (posval > 0)
             {
-                return posval * bid;
+                return posval * ask;
             }
             else
             {
-                return posval * ask;
+                return posval * bid;
             }
         }
 
@@ -75,11 +75,11 @@ namespace CTrader
 
             if (quantity > 0)
             {
-                return retval * quantity * bid;
+                return retval * quantity * ask;
             }
             else
             {
-                return retval * quantity * ask;
+                return retval * quantity * bid;
             }
         }
 
@@ -87,11 +87,11 @@ namespace CTrader
         {
             if (posval > 0)
             {
-                return (posval / 0.000001m) / bid;
+                return (posval / 0.000001m) / ask;
             }
             else
             {
-                return (posval / 0.000001m) / ask;
+                return (posval / 0.000001m) / bid;
             }
         }
 
@@ -120,11 +120,11 @@ namespace CTrader
 
             if (quantity > 0)
             {
-                retval *= bid;
+                retval *= ask;
             }
             else
             {
-                retval *= ask;
+                retval *= bid;
             }
 
             return retval;
@@ -134,11 +134,11 @@ namespace CTrader
         {
             if (posval > 0)
             {
-                return posval / bid;
+                return posval / ask;
             }
             else
             {
-                return posval / ask;
+                return posval / bid;
             }
         }
 
