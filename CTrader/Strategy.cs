@@ -141,7 +141,6 @@ namespace CTrader
 
                 decimal xbtEntry = 0;
                 decimal ethEntry = 0;
-                decimal xcfEntry = 0;
 
                 foreach (var p in positions)
                 {
@@ -158,7 +157,6 @@ namespace CTrader
                     else if (p.Symbol == xcfProperties.Symbol())
                     {
                         xcfQty = p.CurrentQty;
-                        xcfEntry = p.AvgEntryPrice.HasValue ? p.AvgEntryPrice.Value : 0;
                     }
                 }
 
@@ -166,6 +164,7 @@ namespace CTrader
                 decimal xbtAsk = exchange.marketDataSystem.GetBestAsk(xbtProperties.Symbol());
                 decimal ethBid = exchange.marketDataSystem.GetBestBid(ethProperties.Symbol());
                 decimal ethAsk = exchange.marketDataSystem.GetBestAsk(ethProperties.Symbol());
+
 
                 if (xbtBid > 0 && xbtAsk > 0 && ethBid > 0 && ethAsk > 0)
                 {
@@ -179,26 +178,18 @@ namespace CTrader
                     }
 
                     log.Info(string.Format("Trading notional {0:N4}", notional));
-                    decimal runningPnl = 0;
 
                     log.Info(string.Format("XBT current {0}, XBT last {1}, ETH current {2}, ETH last {3} XCF current {4:N5}, XCF last {5:N5}", 
-                                            xbtAsk, xbtEntry, ethAsk, ethEntry, ethAsk / xbtAsk, ethEntry / xbtEntry));
-                    decimal xbtPnl = xbtProperties.GetPnl(xbtQty, xbtAsk, xbtEntry);
-                    decimal ethPnl = ethProperties.GetPnl(ethQty, ethBid, ethEntry);
-                    decimal xcfPnl = xcfProperties.GetPnl(xcfQty, ethBid / xbtAsk, ethEntry / xbtEntry);
-                    runningPnl = xbtPnl + ethPnl + xcfPnl;
-                    
-                        
-                    log.Info(string.Format("{0:N5} XBT Pnl {1:N5} ETH Pnl {2:N5} XCF Pnl {3:N5} runningPnl (Xbt)", 
-                                xbtPnl, ethPnl, xcfPnl, runningPnl * 100000000));
+                                            xbtBid, xbtEntry, ethBid, ethEntry, ethBid / xbtBid, ethEntry / xbtEntry));
 
-                    runningPnl -= profit;
+                    var longCorrMode = Math.Sign(xbtBid - xbtEntry) * Math.Sign(ethBid - ethEntry);
                     
-                    var xcfTotalQty = Math.Round(xcfProperties.GetQuantity(-notional, ethAsk / xbtBid, ethBid / xbtAsk));
-                    var tradenotional = Math.Abs(xcfProperties.GetPositionValue(xcfTotalQty, ethAsk / xbtBid, ethBid / xbtAsk));
-                    var xbtTotalQty = xbtProperties.GetQuantity(-tradenotional, xbtBid, xbtAsk);
-                    tradenotional = Math.Abs(xbtProperties.GetPositionValue(xbtTotalQty, xbtBid, xbtAsk));
-                    var ethTotalQty = ethProperties.GetQuantity(tradenotional, ethBid, ethAsk);
+                    log.Info(string.Format("correlation is {0}", longCorrMode));
+
+                    var xcfTotalQty = Math.Round(xcfProperties.GetQuantity(-notional, ethBid / xbtBid, ethBid / xbtBid));
+                    var tradenotional = Math.Abs(xcfProperties.GetPositionValue(xcfTotalQty, ethBid / xbtBid, ethBid / xbtBid));
+                    var xbtTotalQty = xbtProperties.GetQuantity(-tradenotional, xbtBid, xbtBid);
+                    var ethTotalQty = ethProperties.GetQuantity(tradenotional, ethBid, ethBid);
                     var ethToTrade = Math.Round(ethTotalQty - ethQty);
                     var xcfToTrade = Math.Round(xcfTotalQty - xcfQty);
                     var xbtToTrade = Math.Round(xbtTotalQty - xbtQty);
@@ -207,19 +198,41 @@ namespace CTrader
                                         + Math.Abs(xbtProperties.GetPositionValue(xbtToTrade, xbtBid, xbtAsk));
                     commission *= 0.00075m;
                     commission += Math.Abs(xcfProperties.GetPositionValue(xcfToTrade, ethAsk / xbtBid, ethBid / xbtAsk)) * 0.0025m;
-
+                    
                     log.Info(string.Format("Commission {0:N5} Xbt", commission * 100000000));
-                    if (runningPnl < 2 * commission && counter < 180 && xcfToTrade == 0)
-                    {
-                        return;
-                    }
-
-                    profit += runningPnl;
-
+                    
                     if (xbtToTrade == 0 && ethToTrade == 0 && xcfToTrade == 0)
                     {
                         log.Info("Nothing to trade - all trades are zero");
                         return;
+                    }
+
+                    decimal runningPnl = xbtProperties.GetPnl(xbtQty, xbtAsk, xbtEntry) + ethProperties.GetPnl(ethQty, ethAsk, ethEntry);
+                    runningPnl += xcfProperties.GetPnl(xcfQty, ethBid / xbtAsk, ethEntry / xbtEntry);
+                    log.Info(string.Format("Running Pnl {0:N5}", runningPnl * 100000000));
+                    
+                    if (longCorrMode > 0)
+                    {
+                        if (xbtToTrade < 0 || ethToTrade > 0)
+                        {
+                            log.Info("Building position");
+                        }
+                        else if (runningPnl - profit < 1.5m * commission && counter < 180)
+                        {
+                            log.Info(string.Format("Running Pnl {0:N5} less than 1.5 times commission", (runningPnl - profit) * 100000000));
+                            return;
+                        }
+                    }
+                    else if (longCorrMode < 0)
+                    {
+                        if ((xbtToTrade > 0 && xbtAsk - xbtEntry < 0) || (ethToTrade < 0 && ethBid - ethEntry > 0))
+                        {
+                            log.Info("Booking profits");
+                        }
+                        else
+                        {
+                            return;
+                        }
                     }
 
                     OrderPOSTRequestParams xbtOrder = new OrderPOSTRequestParams
@@ -287,6 +300,7 @@ namespace CTrader
                     }
                     summary.State = "Running";
                     counter = 0;
+                    profit = runningPnl;
                 }
             }
             catch (Exception e)
@@ -302,8 +316,8 @@ namespace CTrader
             try
             {
                 SlackMessage msg = new SlackMessage();
-                msg.Text = string.Format("{0}:  WalletBalance={1:N6} BTC     BalanceMargin={2:N6} BTC     profit={3:N6} BTC", 
-                    summary.Environment, summary.WalletBalance * 0.00000001m, summary.BalanceMargin * 0.00000001m, profit);
+                msg.Text = string.Format("{0}:  WalletBalance={1:N6} BTC     BalanceMargin={2:N6} BTC     profit={3:N6} Xbt", 
+                    summary.Environment, summary.WalletBalance * 0.00000001m, summary.BalanceMargin * 0.00000001m, profit * 100000000);
                 slackMessenger.SendSlackMessage(msg);
 
             }
